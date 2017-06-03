@@ -317,6 +317,37 @@ DO
 
             }  while ($regexcounter -lt $regexhash.count)
 
+            #last potential case, i hope
+            #sometimes a chocolateyinstall.ps1 script skips variable assignment and write a hardcode for Install-ChocolateyXXXXX (ex. greenshot)
+            #so this case see's if there is an http/s path and replaces it with a local ULN
+
+            
+            # 'Install-ChocolateyPackage','Install-ChocolateyInstallPackage','Install-ChocolateyZipPackage'
+            
+            foreach ($i in select-string -path $pkginstall -Pattern 'Install-Chocolatey.*') {
+                
+
+                #parse the string for the http value and the file value
+                ($i.matches.value) -match 'http.*//.*.'
+                $http = $matches[0]
+                $file = ($http).split("/") -replace ".$" | `
+                            Select-Object -Last 1
+
+                #find the file and copy it to toolsdir
+                Get-ChildItem -path $pkglib,$pkgcache -Filter $file* -Recurse | % { cp $_.fullname "$pkgnupkg\tools" }
+                $file = (Get-ChildItem -path "$pkgnupkg\tools" -Filter $file).FullName
+                
+                #replace the http string with a uln string
+                (Get-Content $pkginstall) | `
+                    foreach {$_ -replace $http,"$file'"} | `
+                    set-content $pkginstall
+                
+                
+                #$httphash += $http
+                #$http
+
+            }
+            
 
         #package the whole thing up!
         choco pack "$pkgnupkg\$pkg.nuspec" --out $pkgnupkg
