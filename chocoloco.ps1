@@ -12,8 +12,56 @@
 import-module C:\ProgramData\chocolatey\helpers\chocolateyInstaller.psm1
 import-module C:\ProgramData\chocolatey\helpers\chocolateyProfile.psm1
 
+<#
+    googlechrome
+    notepadplusplus
+    adobereader
+    firefox
+x    7zip
+    vlc
+    ccleaner
+    sysinternals
+    filezilla
+    putty
+    procexp
+x    curl
+    pdfcreator
+    malwarebytes
+    atom
+    virtualbox
+    paint.net
+    python2
+    cutepdf
+    itunes
+    vim
+    python
+    windirstat
+    irfanview
+    flashplayerppapi #google chrome flash
+    flashplayernpapi #firefox flash
+    cdburnerxp
+    puppet
+    fiddler4
+    greenshot
+    vagrant
+    baretail
+    googleearthpro
+    imagemagick.app
+    docker
+    ffmpeg
+    crystaldiskinfo
+    virtualclonedrive
+    rdcman
+x    f.lux
+x    rufus
+    handbrake
+    vmwarevsphereclient
+    kodi
+#>
+
+
 #Variables
-$mainpkg = "notepadplusplus"
+$mainpkg = "greenshot"
 $pkg = ""
 $mainpkgcache = "C:\ProgramData\chocolatey\cache"
 $mainpkglib = "C:\ProgramData\chocolatey\lib\$mainpkg"
@@ -107,7 +155,16 @@ DO
         #create hashtable of chocolateyinstall.ps1 variables
         $p = '(?<key>^\$([a-zA-Z]|\d)*[\s | \t]+\=[\s | \t]+)(?<value>.*)'
         $chocohash = @{}
-        Select-String -Path $pkginstall -Pattern $p -AllMatches | ForEach-Object { $chocohash.add($_.Matches.Groups[2].value,$_.matches.groups[3].value) }
+        if((Test-Path $pkginstall) -eq $True) {
+            Select-String -Path $pkginstall -Pattern $p -AllMatches | ForEach-Object { $chocohash.add($_.Matches.Groups[2].value,$_.matches.groups[3].value) }    
+        }
+        elseif($pkg -contains ".install") {
+            Write-Host "This package does not possess a chocolateyinstall.ps1 file and it's a .install package; BAD BAD BAD!" -BackgroundColor Black -ForegroundColor Red
+        }
+        else {
+            Write-Host "This package does not possess a chocolateyinstall.ps1 file; proceeding!" -BackgroundColor Black -ForegroundColor DarkGreen
+        }
+        
       
 
         #for all the files identified in the url string, search for file in lib and cache
@@ -116,8 +173,8 @@ DO
             $file = ($chocohash.$a).split("/") -replace ".$" | `
                 Select-Object -Last 1
             $file
-            Get-ChildItem -Path $pkgcache -Filter $file -Recurse | ForEach-Object { cp $_.FullName $pkgnupkg\tools}
-            Get-ChildItem -Path $pkglib -Filter $file -Recurse | ForEach-Object { cp $_.FullName $pkgnupkg\tools}
+            Get-ChildItem -Path $pkgcache -Filter $file* -Recurse | ForEach-Object { cp $_.FullName $pkgnupkg\tools -Force }
+            Get-ChildItem -Path $pkglib\tools -Filter $file* -Recurse | ForEach-Object { cp $_.FullName $pkgnupkg\tools -Force }
             Get-ChildItem -Path $pkgnupkg\tools
         }
 
@@ -127,138 +184,138 @@ DO
             $file = ($chocohash.$a).split("\") -replace ".$" | `
                 Select-Object -Last 1
             
-            Get-ChildItem -Path $pkgcache -Filter $file -Recurse | ForEach-Object { cp $_.FullName $pkgnupkg\tools}
-            Get-ChildItem -Path $pkglib -Filter $file -Recurse | ForEach-Object { cp $_.FullName $pkgnupkg\tools}
-            Get-ChildItem -Path $pkgnupkg\tools
+            #uln's can be either literal or implied. if literal locate the file and copy it. if implied then attempt to copy from lib and cache
+            if ( Test-Path $file -IsValid ) {
+                
+                Get-ChildItem -Path $pkgcache -Filter $file* -Recurse | ForEach-Object { cp $_.FullName $pkgnupkg\tools -Force }
+                Get-ChildItem -Path $pkglib -Filter $file* -Recurse | ForEach-Object { cp $_.FullName $pkgnupkg\tools -Force }
+                Get-ChildItem -Path $pkgnupkg\tools
+            }
+            else {
+                
+                Get-ChildItem -Path $pkgcache -Recurse | ForEach-Object { cp $_.FullName $pkgnupkg\tools -Force }
+                Get-ChildItem -Path $pkglib\tools -Recurse | ForEach-Object { cp $_.FullName $pkgnupkg\tools -Force }
+
+            }
         }
 
 
         #Begin to re-wrap the package for local distribution
-
-        $webmatches = select-string -path $pkginstall -pattern "Install-ChocolateyPackage" -AllMatches
-        $exematches = select-string -path $pkginstall -pattern "Install-ChocolateyInstallPackage" -AllMatches
-        $zipmatches = select-string -path $pkginstall -pattern "Install-ChocolateyZipPackage" -AllMatches
-
-
+                
         #There are ` marks throughout these replace strings, don't mess with them unless you understand substatution
         #The following is a REGEX stew, necessary for finding/replacing the myriad necessary flags to shape an internal package
-        #Learn your REGEX and don't fiddle with ' ` " unless you know what's up
+        #Learn your REGEX and don't fiddle with nothing unless you know what's going on
+        # REGEX is about pattern recognition and it's best you see my pattern before making your own
 
-        if ($webmatches.matches.count -gt 0) {
-            #ex. notpadplusplus
-            Write-Host "Matched: $webmatches.Pattern"
                          
             $regexhash = @(
-                '(\$url32[ \t]+\=\s)(.*)'
-                '(\$url64[ \t ]+\=\s)(.*)'
-                '(\$checksum32[ \t]+\=\s)(.*)'
-                '(\$checksum64[ \t]+\=\s)(.*)'
+                '(\$\S*[fF]ile\S*[ \t]+\=[ \t])(.*)'
+                '(\$url32[ \t]+\=[ \t])(.*)'
+                '(\$url64[ \t ]+\=[ \t])(.*)'
+                '(\$url[ \t ]+\=[ \t])(.*)'
+                '(\$checksum[ \t]+\=[ \t])(.*)'
+                '(\$checksum32[ \t]+\=[ \t])(.*)'
+                '(\$checksum64[ \t]+\=[ \t])(.*)'
+                '(\$checksumtype[ \t]+\=[ \t])(.*)'
             )
                 
             $regexcounter = 0
                 
             DO 
             {
-                write-host $regexhash[$regexcounter]
-                    
-                    
-                if(($regexhash[$regexcounter]) -match "url") {
-                    $file = select-string -path $pkginstall -Pattern $regexhash[$regexcounter] | `
-                        foreach {($_.Line).split("/") -replace ".$" | `
-                        Select-Object -Last 1}
-                    $file = "$pkgnupkg/tools/$file"
+                if((Test-Path $pkginstall) -eq $True) {
 
-                }
-                else{
-                    $file = ''
-                }
+
+                    write-host "Looking for the following patterns: $($regexhash[$regexcounter])" -ForegroundColor Magenta
+                    
+                    #if url is identified, then get the file name at the end of the url    
                 
+                    if(($regexhash[$regexcounter]) -match "url") {
+                
+                        $file = select-string -path $pkginstall -Pattern $regexhash[$regexcounter] | `
+                            foreach {($_.Line).split("/") -replace ".$" | `
+                            Select-Object -Last 1}
+                
+                        $file = "$pkgnupkg\tools\$file"
+                        Write-Host "Matched: $file" -BackgroundColor DarkGreen
+                        if((Test-Path $pkginstall) -eq $True) {
+                                    (Get-Content $pkginstall) | `
+                                        foreach {$_ -replace $regexhash[$regexcounter],"`${1} '$file'"} | `
+                                        set-content $pkginstall
+                                }
+                    }
+                
+                    #else if file is identified, get the file name at the end of the line
+                    elseif(($regexhash[$regexcounter]) -match "[Ff]ile" ) {
+                 
+                            # $SOMETHINGfileSOMETHING = blah blah blah installer.exe
+                            # this is NOT EASY! The key to success is reading about LAZY QUANTIFIERS
+                                #http://www.rexegg.com/regex-quantifiers.html
+                
+                            $filehash = @()
+                            foreach ($i in select-string -path $pkginstall -Pattern $regexhash[$regexcounter]) {
 
-                (Get-Content $pkginstall) | `
-                    foreach {$_ -replace $regexhash[$regexcounter],"`${1} '$file'"} | `
-                    set-content $pkginstall
-                    #out-file $pkginstall
+                                ($i.matches.value) -match '(\S*(\\\S*.exe.)) | (\S*.exe.)'
+                                $file = $matches[0]
+                                $filehash += $file
+
+                            }
+
+                            if ($filehash.Count -eq 1 ) {
+                                $file = $filehash[0]
+                                if((Test-Path $pkginstall) -eq $True) {
+                                    (Get-Content $pkginstall) | `
+                                        foreach {$_ -replace $regexhash[$regexcounter],"`${1} '$file'"} | `
+                                        set-content $pkginstall
+                                }
+                            
+                            }
+                            elseif ($filehash.count -eq 0 ) {
+                                Write-Host "No exe pattern could be identified; proceed with caution" -BackgroundColor Black -ForegroundColor Green
+                            }
+                            
+                            else {
+
+                                foreach($i in $filehash) {
+
+                                    (Get-Content $pkginstall) | `
+                                        foreach {$_ -replace $regexhash[$regexcounter],"`${1} '$file'"} | `
+                                        set-content $pkginstall
+                                }
+
+                            }
+                    
+                    }
+                
+                    elseif(($regexhash[$regexcounter]) -match "checksum" ) {
+                        $file = ''
+                        if((Test-Path $pkginstall) -eq $True) {
+                        (Get-Content $pkginstall) | `
+                            foreach {$_ -replace $regexhash[$regexcounter],"`${1} '$file'"} | `
+                            set-content $pkginstall
+
+                    }
+                    else{
+                        Write-Host "No pattern could be identified; proceeding with caution" -BackgroundColor Black -ForegroundColor Green
+                    }
+                
+                    if((Test-Path $pkginstall) -eq $True) {
+                        (Get-Content $pkginstall) | `
+                            foreach {$_ -replace $regexhash[$regexcounter],"`${1} '$file'"} | `
+                            set-content $pkginstall
+                    }
+                    else{
+                        Write-Host "This package had no work to be done, it lacked a chocolateyinstall.ps1 file" -BackgroundColor Black -ForegroundColor Green
+                    }
+                
+                }
+                }
+                else {Write-Host "This package had no work to be done, it lacked a chocolateyinstall.ps1 file" -BackgroundColor Black -ForegroundColor Green }
+                
                     
                 $regexcounter++
 
-                }  while ($regexcounter -lt $regexhash.count)
-                
-        }
-
-
-        elseif ($exematches.matches.count -gt 0) {
-            #ex. 7zip
-            Write-Host "Matched: $exematches.Pattern; nothing to do"
-                
-                
-        }
-            
-        elseif ($zipmatches.Matches.Count -gt 0) {
-            $regexhash = @(
-                '(\$url32[ \t]+\=\s)(.*)'
-                '(\$url64[ \t ]+\=\s)(.*)'
-                '(\$checksum32[ \t]+\=\s)(.*)'
-                '(\$checksum64[ \t]+\=\s)(.*)'
-            )
-                
-            $regexcounter = 0
-                
-            DO 
-            {
-                write-host $regexhash[$regexcounter]
-                                        
-                if(($regexhash[$regexcounter]) -match "url") {
-                    
-                    $file = select-string -path $pkginstall -Pattern $regexhash[$regexcounter] | `
-                        foreach {($_.Line).split("/") -replace ".$" | `
-                        Select-Object -Last 1}
-                    
-                    $file = "$pkgnupkg/tools/$file"
-
-                }
-                else{
-                    $file = ''
-                }
-                
-                (Get-Content $pkginstall) | `
-                    foreach {$_ -replace $regexhash[$regexcounter],"`${1} '$file'"} | `
-                    set-content $pkginstall
-                    #out-file $pkginstall
-                    
-                $regexcounter++
-
-                }  while ($regexcounter -lt $regexhash.count)
-                
-        }
-
-
-        elseif ($exematches.matches.count -gt 0) {
-            #ex. 7zip
-            Write-Host "Matched: $exematches.Pattern; nothing to do"        
-                
-            #ex. notpadplusplus.commandline
-            Write-Host "Matched: $zipmatches.Pattern"
-                
-            $find = "Install-ChocolateyZipPackage `@packageArgs"
-            $replace = "`$toolsDir   = `"`$(Split-Path -parent `$MyInvocation.MyCommand.Definition)`"`n Install-ChocolateyZipPackage `'$pkg`' `"`$toolsdir\$file`" `"`$toolsdir`" "
-                
-            (Get-Content $pkginstall) | `
-            foreach {$_.replace($find,$replace)} | `
-            out-file $pkginstall
-            
-        }
-            
-        else {
-            Write-Host "Stopping: Uncertain how to handle these instructions"
-        }
-
-
-
-                
-        else {
-            Write-Host "No further file searching required; this is a virtual package"
-        }
-
+            }  while ($regexcounter -lt $regexhash.count)
 
 
         #package the whole thing up!
@@ -282,3 +339,5 @@ DO
 #use single quotes and semi colons with the source field
 
 #choco install $pkg -source '$pkgnupkg;C:\ProgramData\chocolatey\nupkg' -dv -y
+#choco install $pkg -source 'C:\ProgramData\chocolatey\nupkg' -dv -y
+
