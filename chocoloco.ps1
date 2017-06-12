@@ -1,35 +1,23 @@
 ﻿#REFERENCE SITE: https://chocolatey.org/docs/how-to-recompile-packages
-
 <#
-#install-chocolateypackager : the term XXX is not recognized as the name of a cmdlet
-	#- C:\ProgramData\chocolatey\helpers
-	#- import-module .\chocolateyInstaller.psm1
-	#- import-modeul .\chocolateyProfile.psm1
-# C:\ProgramData\chocolatey\helpers
-# import-module .\chocolateyInstaller.psm1
-# import-module .\chocolateyProfile.psm1
-#>
-import-module C:\ProgramData\chocolatey\helpers\chocolateyInstaller.psm1
-import-module C:\ProgramData\chocolatey\helpers\chocolateyProfile.psm1
-
-<#
-    googlechrome
-    notepadplusplus
-    adobereader
-    firefox
+x    googlechrome - url and url64bin in pkgargs
+x    notepadplusplus - url and url64bin in pkgargs
+x    adobereader
+x    -----adobereader-update (adobereader must be installed first or else adobe throws a 1643 error)
+x    firefox
 x    7zip
-    vlc
+x    vlc
     ccleaner
-    sysinternals
-    filezilla
-    putty
-    procexp
+x    sysinternals
+x    filezilla
+?    putty - putty portable is throwing errors, possible $var leak
+x    procexp
 x    curl
     pdfcreator
     malwarebytes
-    atom
-    virtualbox
-    paint.net
+x    atom
+?    virtualbox
+x    paint.net
     python2
     cutepdf
     itunes
@@ -52,50 +40,188 @@ x    curl
     crystaldiskinfo
     virtualclonedrive
     rdcman
-x    f.lux
-x    rufus
+    f.lux
+    rufus
     handbrake
     vmwarevsphereclient
     kodi
+    youtube-dl
+
+choco install $pkg -source 'C:\ProgramData\chocolatey\nupkg' -dv -Y -force
 #>
 
+import-module C:\ProgramData\chocolatey\helpers\chocolateyInstaller.psm1
+import-module C:\ProgramData\chocolatey\helpers\chocolateyProfile.psm1
 
 #Variables
-$mainpkg = "greenshot"
-$pkg = ""
-$mainpkgcache = "C:\ProgramData\chocolatey\cache"
+$mainhash = @(
+"sysinternals"
+"putty"
+"procexp"
+"virtualbox"
+"paint.net"
+"itunes"
+"irfanview"
+)
+
+foreach($i in $mainhash){
+
+$mainpkg = $i
 $mainpkglib = "C:\ProgramData\chocolatey\lib\$mainpkg"
 $mainpkgcache = "C:\ProgramData\chocolatey\cache\$mainpkg"
-$mainpkgnupkg = "C:\ProgramData\chocolatey\nupkg\$mainpkg"
-$mainpkginstall = "$pkgnupkg\tools\chocolateyInstall.ps1"
+
+function Get-HttpExe($key, $file) {            
+    Write-Host "ULN exists in http(s) address, updating outerhash"
+    
+    #store the finding in hashtoalter
+    $hashtoalter.add($key,("$toolsdir\" + $file))
+
+    Get-Install "$file"
+}
+
+function Get-FileExe($key, $file) {
+
+    Write-Host "FILE key exists, searching for the file in cache and lib"
+                    
+    Get-ChildItem -Path $pkgcache,$pkglib -Filter $file -Recurse
+                    
+    #store the finding in hashtoalter
+    #$hashtoalter.add($key,("$toolsdir\" + $file))
+
+    Get-Install "$file"
+
+}
+
+function Get-FileZip($key, $file) {
+    Write-Host "ULN missing, searching for .zip | .7z"
+    #find file, file will be the .ignore
+    $file = (Get-ChildItem -Path $pkgcache,$pkglib -Filter '*.zip*', '*.7z*' -Recurse).Name
+    
+    #store the finding in hashtoalter
+    #$hashtoalter.add($key,("$toolsdir\" + $file))
+
+    Get-Install "$file"
+}
+
+function Get-Ignore($key) {
+    
+    #find file, file will be the .ignore
+    (Get-ChildItem -Path $pkgcache,$pkglib -Filter '*.ignore' -Recurse) | foreach-object `
+    {
+            
+            $file = $_ -replace '.ignore',''
+            Write-Host "ULN is missing in http(s) address, searching for .ignore instead"
+
+            #store the finding in hashtoalter
+            $hashtoalter.add($key,("$toolsdir\" + $file))
+
+            Get-Install "$file"
+    }
+
+}
+
+function Get-Install ($file) {
+    Write-Host "File is: $file"
+    Get-ChildItem -Path $pkgcache -Filter "*$file*" -Recurse | ForEach-Object { cp $_.FullName $pkgnupkg\tools -Force }
+    Get-ChildItem -Path $pkglib\tools -Filter "*$file*" -Recurse | ForEach-Object { cp $_.FullName $pkgnupkg\tools -Force }
+    Get-ChildItem -Path $pkgnupkg\tools -Filter "*$file*"
+}
+
+#f*** windows and it's stupid PS regex, .Net regex B.S.
+#.replace () = string but -replace = regex bull crap
+# and don't get me started on interpolation with variables
+# omg the following lines of code can be done with python is 3 lines!
+function Set-HashToAlter($hashtoalter, $pkginstall) {
+        
+        $hashtoalter
+                
+        foreach ($i in $hashtoalter.GetEnumerator()) {
+                
+            $i
+            $a = $i.value
+            $i = $i.key
+            $str = (get-content $pkginstall -RAW)
+
+
+
+
+            #if the variable starts with $, then we need to escape it in the regex
+            
+            if($i -match "^\$")
+            {
+                Write-Host "$i has a pre-pended $"
+                #if last character of $str is { then search multiline for the next $var
+                if($str -match "(?mi)(^\$i)([.| \t]+=[ \t])(.*{)")
+                {
+                    Write-Host "$i is a multiline value replace" -ForegroundColor Yellow
+                    ($str) -replace "(?smi)(^\$i)([ t]=[ \t])(.*?)(^\$)","`${1}`${2}""$a""`n$" | set-content $pkginstall
+                }
+
+                else
+                {
+                    write-host "$i is a single line replace" -ForegroundColor Yellow
+                    ($str) -replace "(\$i)([.| \t]+=[ \t]).*","`${1}`${2}""$a"""  | set-content $pkginstall 
+                }
+            }
+            #else it's a string
+            else
+            {
+                Write-Host "$i does not contain a pre-pended $" -ForegroundColor Yellow
+                #if($str -match "(?mi)(^$i)([.| \t]+=[ \t])(.*{)")
+                #{
+                #    Write-Host "$i is a multiline value replace" -ForegroundColor Yellow
+                #    ($str) -replace "(?smi)(^$i)([ t]=[ \t])(.*?)(^\$)","`${1}`${2}""$a""`n$" | set-content $pkginstall
+                #}
+
+                #else
+                #{
+                    write-host "$i is a single line replace" -ForegroundColor Yellow
+                    ($str) -replace "($i)([.| \t]+=[ \t]).*","`${1}`${2}""$a"""  | set-content $pkginstall 
+                #}  
+                
+            }
+        }
+
+    Remove-Checksum
+}
+
+function Remove-Checksum() {
+    
+ #    '(.+file.+=[ \t])(.*)'
+ #    '(.+url.+=[ \t])(.*)'
+ #    '(.+checksum.+=[ \t])(.*)'
+
+       (Get-Content $pkginstall -Raw) | `
+       foreach {$_ -replace '(.+checksum.+=[ \t])(.*)',"`${1}''"} | `
+       foreach {$_ -replace '(-checksum.*?[ \t].*?[\s]+)',""} | `
+       set-content $pkginstall 
+}
 
 
 #downloads typically go to C:\Users\USERNAME\AppData\Local\Temp
 #this location sucks, changing location to C:\ProgramData\chocolatey\cache
 $cacheLocation = choco config get cacheLocation
 if (($cacheLocation[1]) -ne "C:\ProgramData\chocolatey\cache") {
+    
     Write-Host "Setting cacheLocation to 'C:\ProgramData\chocolatey\cache'" -foreground Yellow
+    
     if ((Test-Path C:\ProgramData\chocolatey\cache) -eq $False) {
+    
         Write-Host "Cache directory does not exist; creating cache directory" -foreground Yellow
         mkdir C:\ProgramData\chocolatey\cache
+    
     }
     choco config set cacheLocation $mainpkgcache
 }
-else {
-    Write-Host "cacheLocation is already set to 'C:\ProgramData\chocolatey\cache'; moving on" -foreground Yellow
-}
-
+else { Write-Host "cacheLocation is already set to 'C:\ProgramData\chocolatey\cache'; moving on" -foreground Yellow }
 
 #install the package traditionally
 choco install $mainpkg -y
-
 
 #build an array of all dependencies
 $pkgarray = @($mainpkg)
 
 [xml]$nuspec = (Get-Content "$mainpkglib\*.nuspec")
-
-
 if ($nuspec.package.metadata.dependencies.dependency) {
     Write-Host "We found some dependencies; standby"
     
@@ -112,256 +238,379 @@ if ($nuspec.package.metadata.dependencies.dependency) {
 Write-Host "There are $($pkgarray.count) item(s) to package"
 $pkgarray
 
-
 #for each package listed in pkgarray
 #find any install files that may be stored in lib or cache
-$counter = 0 
-DO 
+$counter = 0
+
+do 
 {
+
     Write-host "Working with $pkgarray["$counter"]" -ForegroundColor Yellow
     
     $pkg = $pkgarray["$counter"]
-    
+
     $pkgcache = "C:\ProgramData\chocolatey\cache"
     $pkglib = "C:\ProgramData\chocolatey\lib\$pkg"
     $pkgcache = "C:\ProgramData\chocolatey\cache\$pkg"
     $pkgnupkg = "C:\ProgramData\chocolatey\nupkg\$pkg"
     $pkginstall = "$pkgnupkg\tools\chocolateyInstall.ps1"
-    
 
-        #unzip the nupkg file
-        cp "$pkglib\*.nupkg" "$pkglib\$pkg.zip"
-        if(! (Test-Path $pkgnupkg)) {
+    #unzip the nupkg file
+    cp "$pkglib\*.nupkg" "$pkglib\$pkg.zip"
+    if(! (Test-Path $pkgnupkg)) {
             
             New-Item -ItemType Directory -Force -Path $pkgnupkg
         }
         
-        expand-archive -path "$pkglib\$pkg.zip" -destinationpath $pkgnupkg -force
+    expand-archive -path "$pkglib\$pkg.zip" -destinationpath $pkgnupkg -force
 
-        #remove un-needed, soon to be recreated elements
-        remove-item -Recurse "$pkgnupkg\_rels", "$pkgnupkg\package"
-        remove-item -LiteralPath [Content_Types].xml
+    #remove un-needed, soon to be recreated elements
+    remove-item -Recurse "$pkgnupkg\_rels", "$pkgnupkg\package"
+    remove-item -LiteralPath [Content_Types].xml
 
-        #search the cache for any necessary files
-        #get the content of chocolateyinstall.ps1
-        #find the exe files listed in url
-        #search for the exe files in cache
+    if(Test-Path $pkginstall){
+            #parser array setup for PackageArgs @{} within file
+            $content = get-content -Path $pkginstall | Out-String
+            $pkgargs = ([regex] '(?is)(?<=\$packageArgs[ \t]+\=[ \t]@{).*?(?=})').matches($content)
+            $pkgargs = $pkgargs.value -split "`r`n"
+            $pkgargs = $pkgargs -replace '\\','\\'
 
-        #get the content of the file
-        #find only variable assignments '$var = '
-        #build a table of variables listed so that we may call upon them
-        
+            $pkghash = @{}
+            $pkgcounter = 0
+            $pkgcount = ($pkgargs.count)
 
-        #create hashtable of chocolateyinstall.ps1 variables
-        $p = '(?<key>^\$([a-zA-Z]|\d)*[\s | \t]+\=[\s | \t]+)(?<value>.*)'
-        $chocohash = @{}
-        if((Test-Path $pkginstall) -eq $True) {
-            Select-String -Path $pkginstall -Pattern $p -AllMatches | ForEach-Object { $chocohash.add($_.Matches.Groups[2].value,$_.matches.groups[3].value) }    
-        }
-        elseif($pkg -contains ".install") {
-            Write-Host "This package does not possess a chocolateyinstall.ps1 file and it's a .install package; BAD BAD BAD!" -BackgroundColor Black -ForegroundColor Red
-        }
-        else {
-            Write-Host "This package does not possess a chocolateyinstall.ps1 file; proceeding!" -BackgroundColor Black -ForegroundColor DarkGreen
-        }
-        
-      
+            #parser array setup for $var definitions within file
+            $content = get-content -Path $pkginstall | Out-string
+            $outervar = [regex]::Matches($content,'(\$\S*[ \t]+\=[ \t])(.*)')
+            $outervar = $outervar.value -split "`r`n"
+            $outervar = $outervar -replace '\\','\\'
+            $outerhash = @{}
+            $outercounter = 0
+    
+            #alter array used as final reference array for all changes to be made to chocolateyinstall.ps1
+            $hashtoalter = @{}
 
-        #for all the files identified in the url string, search for file in lib and cache
-        foreach($a in ($chocohash.keys | where {$_ -like "*url*" } ) ) {
+                do{
+                    $pkghash += ConvertFrom-StringData -StringData $pkgargs[$pkgcounter]
+                    $pkgcounter++
+                } while ($pkgcounter -ne $pkgcount)
+
+
+                do {
+                    $outerhash += ConvertFrom-StringData -StringData $outervar[$outercounter]
+                    $outercounter++
+                } while ($outercounter -ne $outervar.count)
             
-            $file = ($chocohash.$a).split("/") -replace ".$" | `
-                Select-Object -Last 1
-            $file
-            Get-ChildItem -Path $pkgcache -Filter $file* -Recurse | ForEach-Object { cp $_.FullName $pkgnupkg\tools -Force }
-            Get-ChildItem -Path $pkglib\tools -Filter $file* -Recurse | ForEach-Object { cp $_.FullName $pkgnupkg\tools -Force }
-            Get-ChildItem -Path $pkgnupkg\tools
-        }
+            if($outerhash.count -gt 0 -or $pkghash.count -gt 0){
+                #assign the value of toolsdir
+                if ((select-string $pkginstall -pattern '\$toolspath =').count -gt 0) 
+                                        {
+                    $toolsdir = '$toolspath'
+                }
+                elseif ((select-string $pkginstall -pattern '\$toolsdir =').count -gt 0)
+                                        {
+                    $toolsdir = '$toolsdir'
+                }
+                else
+                {
+                    #set $toolsdir variable for script, as well as prepend $header string to chocolateyinstall.ps1 since it lacks $toolsdir definition
+                    $toolsdir = '$toolsdir'
+                    $header = '$toolsdir = Split-Path $MyInvocation.MyCommand.Definition' 
 
-        #for all the files identified in the uln string, search for file in lib and cache
-        foreach($a in ($chocohash.keys | where {$_ -like "*file*" } ) ) {
+                    $filecontent = (Get-Content $pkginstall)
+                    $filecontent[0] = "{0}`r`n{1}" -f $header, $filecontent[0]
+                    $filecontent | set-content "$pkginstall"
+
+                }
+
+
+                #if $pkginstall contains Install-ChocolateyPackage, then it's a url reachout for an exe or msi. We need this file
+                if (( (get-content $pkginstall) | %{$_ -match 'Install-ChocolateyPackage' -or $_ -match 'Get-ChocolateyWebFile' -or $_ -match 'Install-ChocolateyZipPackage'}) -contains $true) {
             
-            $file = ($chocohash.$a).split("\") -replace ".$" | `
-                Select-Object -Last 1
+                    $outerhash.keys | where {$_ -match 'url'} | foreach {
+                
+                        $key = $_ -replace "`n"
             
-            #uln's can be either literal or implied. if literal locate the file and copy it. if implied then attempt to copy from lib and cache
-            if ( Test-Path $file -IsValid ) {
-                
-                Get-ChildItem -Path $pkgcache -Filter $file* -Recurse | ForEach-Object { cp $_.FullName $pkgnupkg\tools -Force }
-                Get-ChildItem -Path $pkglib -Filter $file* -Recurse | ForEach-Object { cp $_.FullName $pkgnupkg\tools -Force }
-                Get-ChildItem -Path $pkgnupkg\tools
-            }
-            else {
-                
-                Get-ChildItem -Path $pkgcache -Recurse | ForEach-Object { cp $_.FullName $pkgnupkg\tools -Force }
-                Get-ChildItem -Path $pkglib\tools -Recurse | ForEach-Object { cp $_.FullName $pkgnupkg\tools -Force }
+                        #if the url.key has a http(s) string in it's value, then perform the following logic to find the exe
+                        if($outerhash.get_item($key) -match 'http://' -or $outerhash.get_item($key) -match 'https://') {
+                        
+                            $file = ($outerhash.get_item($key) -split "/" -replace ".$" | Select-Object -Last 1)
+                            Write-Host "Working with $key and $file"
+                            #if the value of key.url is a uln, then get me the last value of / delimiter, see if it exists
+                            if((Get-ChildItem -Path $pkgcache,$pkglib -Filter $file -Recurse).name){ Get-HttpExe $key $file }
 
-            }
-        }
-
-
-        #Begin to re-wrap the package for local distribution
-                
-        #There are ` marks throughout these replace strings, don't mess with them unless you understand substatution
-        #The following is a REGEX stew, necessary for finding/replacing the myriad necessary flags to shape an internal package
-        #Learn your REGEX and don't fiddle with nothing unless you know what's going on
-        # REGEX is about pattern recognition and it's best you see my pattern before making your own
-
-                         
-            $regexhash = @(
-                '(\$\S*[fF]ile\S*[ \t]+\=[ \t])(.*)'
-                '(\$url32[ \t]+\=[ \t])(.*)'
-                '(\$url64[ \t ]+\=[ \t])(.*)'
-                '(\$url[ \t ]+\=[ \t])(.*)'
-                '(\$checksum[ \t]+\=[ \t])(.*)'
-                '(\$checksum32[ \t]+\=[ \t])(.*)'
-                '(\$checksum64[ \t]+\=[ \t])(.*)'
-                '(\$checksumtype[ \t]+\=[ \t])(.*)'
-            )
-                
-            $regexcounter = 0
-                
-            DO 
-            {
-                if((Test-Path $pkginstall) -eq $True) {
-
-
-                    write-host "Looking for the following patterns: $($regexhash[$regexcounter])" -ForegroundColor Magenta
-                    
-                    #if url is identified, then get the file name at the end of the url    
-                
-                    if(($regexhash[$regexcounter]) -match "url") {
-                
-                        $file = select-string -path $pkginstall -Pattern $regexhash[$regexcounter] | `
-                            foreach {($_.Line).split("/") -replace ".$" | `
-                            Select-Object -Last 1}
-                
-                        $file = "$pkgnupkg\tools\$file"
-                        Write-Host "Matched: $file" -BackgroundColor DarkGreen
-                        if((Test-Path $pkginstall) -eq $True) {
-                                    (Get-Content $pkginstall) | `
-                                        foreach {$_ -replace $regexhash[$regexcounter],"`${1} '$file'"} | `
-                                        set-content $pkginstall
-                                }
+                            else { Get-Ignore $key }
+            
+                        }
+                        else { Get-Ignore $key}
                     }
+                    $pkghash.keys | where {$_ -match 'url'} | foreach {
+            
+                        $key = $_ -replace "`n"
                 
-                    #else if file is identified, get the file name at the end of the line
-                    elseif(($regexhash[$regexcounter]) -match "[Ff]ile" ) {
-                 
-                            # $SOMETHINGfileSOMETHING = blah blah blah installer.exe
-                            # this is NOT EASY! The key to success is reading about LAZY QUANTIFIERS
-                                #http://www.rexegg.com/regex-quantifiers.html
+                        #if the url.key has a http(s) string in it's value, then perform the following logic to find the exe
+                        if($pkghash.get_item($key) -match 'http://' -or $pkghash.get_item($key) -match 'https://') {
+            
+                            $file = ($pkghash.get_item($key) -split "/" -replace ".$" | Select-Object -Last 1)
+
+                            #if the value of key.url is a uln, then get me the last value of / delimiter, see if it exists
+                            if((Get-ChildItem -Path $pkgcache,$pkglib -Filter $file -Recurse).name){ Get-HttpExe $key $file }
+
+                            else { Get-Ignore $key }
+            
+                        }
+                        else { Get-Ignore $key }
+                    }
+                }  
+    
+                #else if $pkginstall contains Install-ChocolateyInstallPackage, then it's a file that needs to be installed
+                elseif (( (get-content $pkginstall) | %{$_ -match 'Install-ChocolateyInstallPackage'}) -contains $true) {
+            
+                    #select any outerhash that contains file but does not contain type
+                    $outerhash.keys | where {$_ -match 'file'} | where {$_ -match '^(?!.*type).*$'} | foreach {
                 
-                            $filehash = @()
-                            foreach ($i in select-string -path $pkginstall -Pattern $regexhash[$regexcounter]) {
+                    $key = $_ -replace "`n"
 
-                                ($i.matches.value) -match '(\S*(\\\S*.exe.)) | (\S*.exe.)'
-                                $file = $matches[0]
-                                $filehash += $file
+                    #if the file.key has $toolsdir\file string in it's value, then perform the following logic
+                    if($_.value -match "$toolsdir") {
+                
+                        $file = ($_.value -split "\" -replace ".$" | Select-Object -Last 1)
+                
+                        #test to see if the file exists in the working tools directory, if so great
+                        if((Test-Path '$pkgnupkg\tools\$file') -eq $True) { Write-Host "The file appears properly mapped in configuration" }
+                
+                        #else search for the file, if it finds it great
+                        elseif((Get-ChildItem -Path $pkgcache,$pkglib -Filter $file -Recurse) -eq $True) 
+                        {
+                            Get-FileExe $key $file
+                            #store the finding in hashtoalter
+                            #$hashtoalter.add($key,("$toolsdir\" + $file))
+                        }
+                    
+                        else { Get-Ignore $key }
+                
+                    }
 
-                            }
+                    #if the value of key.uln is a uln, then get me the last value of \ delimiter, see if it exists
+                    elseif((Get-ChildItem -Path $pkgcache,$pkglib -Filter '$file' -Recurse).name){
+                
+                        $file = (Get-ChildItem -Path $pkgcache,$pkglib -Filter $file -Recurse).name
+                        Get-FileExe $key $file
+                        #store the finding in hashtoalter
+                        $hashtoalter.add($key,("$toolsdir\" + $file))
 
-                            if ($filehash.Count -eq 1 ) {
-                                $file = $filehash[0]
-                                if((Test-Path $pkginstall) -eq $True) {
-                                    (Get-Content $pkginstall) | `
-                                        foreach {$_ -replace $regexhash[$regexcounter],"`${1} '$file'"} | `
-                                        set-content $pkginstall
+                    }    
+           
+
+                    #else, attempt to find a .ignore in cache and lib and use that filename as the new url.value
+                    else { Get-Ignore $key }
+                }
+                    
+                    $pkghash.keys | where {$_ -match 'file'} | where {$_ -match '^(?!.*type).*$'} | foreach {
+
+                        #if pkghash.value = outerhash.key THEN leave it alone
+                                    <#
+                                    foreach($i in $pkghash.keys){
+                                        if($outerhash.containskey($pkghash.get_item($i)))
+                                        {
+                                            write-host "outerhash contains $i"
+                                        }
+                                        else
+                                        {
+                                            write-host "outerhash DOES NOT contain $i"
+                                        }
+                                    }
+                                    #>
+                        $key = $_ -replace "`n"
+                        Write-host "Working with $_ and $pkghash.get_item($key)"
+                        #foreach($i in $pkghash.keys)
+                        #{
+                            if($outerhash.containskey($pkghash.get_item($key)))
+                            {
+                            Write-Host "PackageArgs contains the key $i with value $pkghash.get_item($i), this value references outerhash.key; leaving the reference alone"
+                        }
+                            else
+                            {
+                            #if the file.key has $toolsdir\file string in it's value, then perform the following logic
+                            if($_.value -match "$toolsdir") {
+                
+                                $file = ($_.value -split "\" -replace ".$" | Select-Object -Last 1)
+                
+                                #test to see if the file exists in the working tools directory, if so great
+                                if((Test-Path '$pkgnupkg\tools\$file') -eq $True) { Write-Host "The file appears properly mapped in configuration" }
+                
+                                #else search for the file, if it finds it great
+                                elseif((Get-ChildItem -Path $pkgcache,$pkglib -Filter $file -Recurse) -eq $True)
+                                { Get-FileExe $key $file 
+                                    #store the finding in hashtoalter
+                                    #$hashtoalter.add($key,("$toolsdir\" + $file))
                                 }
-                            
+                    
+                                else { Get-Ignore $key }
+                
                             }
-                            elseif ($filehash.count -eq 0 ) {
-                                Write-Host "No exe pattern could be identified; proceed with caution" -BackgroundColor Black -ForegroundColor Green
+
+                            #if the value of key.uln is a uln, then get me the last value of \ delimiter, see if it exists
+                            elseif((Get-ChildItem -Path $pkgcache,$pkglib -Filter '$file' -Recurse).name){
+                
+                                $file = (Get-ChildItem -Path $pkgcache,$pkglib -Filter $file -Recurse).name
+                                Get-FileExe $key $file
+                                #store the finding in hashtoalter
+                                $hashtoalter.add($key,("$toolsdir\" + $file))
+
                             }
-                            
+                            #else, attempt to find a .ignore in cache and lib and use that filename as the new url.value
+                            else { Get-Ignore $key }
+                        }
+                        #}
+                    }  
+                }
+                
+                #else if $pkginstall contains install-chocolateyzippackage, then it's a zip file that needs to be installed
+                elseif (( (get-content $pkginstall) | %{$_ -match 'Get-ChocolateyUnzip'}) -contains $true) {
+            
+                    $file = ($_.value -split "\" -replace ".$" | Select-Object -Last 1)
+            
+                    $outerhash.keys | where {$_ -match 'file'} | where {$_ -match '^(?!.*type).*$'} | foreach {
+                
+                        $key = $_ -replace "`n"
+
+                        #if the file.key has $toolsdir\file string in it's value, then perform the following logic
+                        if($_.value -match "$toolsdir") {
+                     
+                            #test to see if the file exists in the working tools directory, if so great
+                            if((Test-Path '$pkgnupkg\tools\$file') -eq $True) { Write-Host "The file appears properly mapped in configuration" }
+                
+                            #else search for the file, if it finds it great
+                            elseif((Get-ChildItem -Path $pkgcache,$pkglib -Filter $file -Recurse) -eq $True) {
+                    
+                                Write-Host "ZIP key exists, searching for the file in cache and lib"
+                                Get-FileExe $key $file
+                                #store the finding in hashtoalter
+                                #$hashtoalter.add($key,("$toolsdir\" + $file))
+
+                            }
+                            else { 
+                    
+                                Write-Host "ZIP key exists but unable to locate the parsed file value, searching for .zip | .7z file"
+                                Get-FileZip $key $file
+                            }
+                
+                        }
+
+                    #if the value of key.uln is a uln, then get me the last value of \ delimiter, see if it exists
+                    elseif((Get-ChildItem -Path $pkgcache,$pkglib -Filter '$file' -Recurse).name){
+                        $file = (Get-ChildItem -Path $pkgcache,$pkglib -Filter $file -Recurse).name
+                        Write-Host "ZIP Exists, updating outerhash"
+                        Get-FileExe $key $file
+
+                    }    
+           
+
+                    #else, attempt to find a .ignore in cache and lib and use that filename as the new url.value
+                    else {
+            
+                        #find file, file will be the .ignore
+                        $file = (Get-ChildItem -Path $pkgcache,$pkglib -Filter '*.zip*', '*.7z*' -Recurse).Name
+                        Write-Host "ULN missing, searching for .zip | .7z"
+                        Get-FileExe $key $file
+                        #store the finding in hashtoalter
+                        $hashtoalter.add($key,("$toolsdir\" + $file))
+
+                    }
+                }
+                        
+                    
+                    $key = $_ -replace "`n"
+                    #select any pkghash that contains file but does not contain type
+                    $pkghash.keys | where {$_ -match 'file'} | where {$_ -match '^(?!.*type).*$'} | foreach {
+                
+                        $key = $_ -replace "`n"
+                
+                        Write-host "Working with $key and $pkghash.get_item($key)"
+                        #if pkghash.value = outerhash.key THEN leave it alone
+                                    <#
+                                    foreach($i in $pkghash.keys){
+                                        if($outerhash.containskey($pkghash.get_item($i)))
+                                        {
+                                            write-host "outerhash contains $i"
+                                        }
+                                        else
+                                        {
+                                            write-host "outerhash DOES NOT contain $i"
+                                        }
+                                    }
+                                    #>
+                        #foreach($i in $pkghash.keys){
+                            if($outerhash.containskey($pkghash.get_item($key))){
+                            Write-Host "PackageArgs contains the key $i with value $pkghash.get_item($i), this value references outerhash.key; leaving the reference alone"
+                        }
+
+                            else{
+                            #if the file.key has $toolsdir\file string in it's value, then perform the following logic
+                            if($_.value -match "$toolsdir") {
+                     
+                                #test to see if the file exists in the working tools directory, if so great
+                                if((Test-Path '$pkgnupkg\tools\$file') -eq $True) { Write-Host "The file appears properly mapped in configuration" }
+                
+                                #else search for the file, if it finds it great
+                                elseif((Get-ChildItem -Path $pkgcache,$pkglib -Filter $file -Recurse) -eq $True) {
+                    
+                                    Write-Host "ZIP key exists, searching for the file in cache and lib"
+                                    Get-FileExe $key $file
+                                    #store the finding in hashtoalter
+                                    #$hashtoalter.add($key,("$toolsdir\" + $file))
+
+                                }
+                                else { 
+                    
+                                    Write-Host "ZIP key exists but unable to locate the parsed file value, searching for .zip | .7z file"
+                                    Get-FileZip $key $file
+                                }
+                
+                            }
+
+                            #if the value of key.uln is a uln, then get me the last value of \ delimiter, see if it exists
+                            elseif((Get-ChildItem -Path $pkgcache,$pkglib -Filter '$file' -Recurse).name){
+                                $file = (Get-ChildItem -Path $pkgcache,$pkglib -Filter $file -Recurse).name
+                                Write-Host "ZIP Exists, updating outerhash"
+                                Get-FileExe $key $file
+                                #store the finding in hashtoalter
+                                $hashtoalter.add($key,("$toolsdir\" + $file))
+
+                            }    
+           
+
+                            #else, attempt to find a .ignore in cache and lib and use that filename as the new url.value
                             else {
-
-                                foreach($i in $filehash) {
-
-                                    (Get-Content $pkginstall) | `
-                                        foreach {$_ -replace $regexhash[$regexcounter],"`${1} '$file'"} | `
-                                        set-content $pkginstall
-                                }
+            
+                                #find file, file will be the .ignore
+                                $file = (Get-ChildItem -Path $pkgcache,$pkglib -Filter '*.zip*', '*.7z*' -Recurse).Name
+                                Write-Host "ULN missing, searching for .zip | .7z"
+                                Get-FileExe $key $file
 
                             }
-                    
+                        }
+                        #}
                     }
-                
-                    elseif(($regexhash[$regexcounter]) -match "checksum" ) {
-                        $file = ''
-                        if((Test-Path $pkginstall) -eq $True) {
-                        (Get-Content $pkginstall) | `
-                            foreach {$_ -replace $regexhash[$regexcounter],"`${1} '$file'"} | `
-                            set-content $pkginstall
-
-                    }
-                    else{
-                        Write-Host "No pattern could be identified; proceeding with caution" -BackgroundColor Black -ForegroundColor Green
-                    }
-                
-                    if((Test-Path $pkginstall) -eq $True) {
-                        (Get-Content $pkginstall) | `
-                            foreach {$_ -replace $regexhash[$regexcounter],"`${1} '$file'"} | `
-                            set-content $pkginstall
-                    }
-                    else{
-                        Write-Host "This package had no work to be done, it lacked a chocolateyinstall.ps1 file" -BackgroundColor Black -ForegroundColor Green
-                    }
-                
                 }
-                }
-                else {Write-Host "This package had no work to be done, it lacked a chocolateyinstall.ps1 file" -BackgroundColor Black -ForegroundColor Green }
-                
-                    
-                $regexcounter++
+    
+                else {Write-Host "You may be hosed, not sure how to parse this file" -BackgroundColor Black -ForegroundColor Red}
 
-            }  while ($regexcounter -lt $regexhash.count)
+                Set-HashToAlter $hashtoalter $pkginstall
+        }
 
-            #last potential case, i hope
-            #sometimes a chocolateyinstall.ps1 script skips variable assignment and write a hardcode for Install-ChocolateyXXXXX (ex. greenshot)
-            #so this case see's if there is an http/s path and replaces it with a local ULN
-
-            
-            # 'Install-ChocolateyPackage','Install-ChocolateyInstallPackage','Install-ChocolateyZipPackage'
-            
-            foreach ($i in select-string -path $pkginstall -Pattern 'Install-Chocolatey.*') {
-                
-
-                #parse the string for the http value and the file value
-                ($i.matches.value) -match 'http.*//.*.'
-                $http = $matches[0]
-                $file = ($http).split("/") -replace ".$" | `
-                            Select-Object -Last 1
-
-                #find the file and copy it to toolsdir
-                Get-ChildItem -path $pkglib,$pkgcache -Filter $file* -Recurse | % { cp $_.fullname "$pkgnupkg\tools" }
-                $file = (Get-ChildItem -path "$pkgnupkg\tools" -Filter $file).FullName
-                
-                #replace the http string with a uln string
-                (Get-Content $pkginstall) | `
-                    foreach {$_ -replace $http,"$file'"} | `
-                    set-content $pkginstall
-                
-                
-                #$httphash += $http
-                #$http
-
-            }
-            
-
-        #package the whole thing up!
-        choco pack "$pkgnupkg\$pkg.nuspec" --out $pkgnupkg
-
-
-
+            else{Write-Host "$pkg has a chocolateyinstall.ps1 file but does not posses any variables to populate `$outerhash or `$pkghash"}
+    }
+    
+    else{Write-Host "$pkg does not posses a chocolateyinstall.ps1 file"}
+    
+    #package the whole thing up!
+    choco pack "$pkgnupkg\$pkg.nuspec" --out $pkgnupkg
 
     $counter++
+
 } while ($counter -ne $pkgarray.count)
-
-
-
-#choco uninstall $pkg -y
-
 
 #when installing you need to specify the source of the nupkg file AS WELL as any directory to look for dependencies
 #notepadplusplus has .install nupkg in C:\ProgramData\chocolatey\nupkg so that I add that
@@ -369,6 +618,8 @@ DO
 #I can also look into add nupkg as a source but for now I'll manuall specify it
 #use single quotes and semi colons with the source field
 
-#choco install $pkg -source '$pkgnupkg;C:\ProgramData\chocolatey\nupkg' -dv -y
-#choco install $pkg -source 'C:\ProgramData\chocolatey\nupkg' -dv -y
 
+choco install $pkg -source 'C:\ProgramData\chocolatey\nupkg' -dv -Y -force
+
+
+}
