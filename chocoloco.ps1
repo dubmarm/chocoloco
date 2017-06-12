@@ -16,15 +16,15 @@ x    curl
     pdfcreator
     malwarebytes
 x    atom
-?    virtualbox
-x    paint.net
+?    virtualbox - checksum error, perhaps need to remove the CACHE data
+x    paint.net - .Net4.61 - choco does not like the validexitcodes (not in key=value format) : line 294 : $pkghash += convertfrom-stringdata -stringdata $pkgargs[$pkgcounter] Install was still a success
     python2
     cutepdf
-    itunes
-    vim
+x    itunes
+x    vim
     python
-    windirstat
-    irfanview
+x    windirstat
+x    irfanview - added autohotkey.portable chocolatey-uninstall.extension to line 227 : if ($i.id -ne "chocolatey-core.extension","autohotkey.portable","chocolatey-uninstall.extension") {
     flashplayerppapi #google chrome flash
     flashplayernpapi #firefox flash
     cdburnerxp
@@ -55,12 +55,9 @@ import-module C:\ProgramData\chocolatey\helpers\chocolateyProfile.psm1
 
 #Variables
 $mainhash = @(
-"sysinternals"
-"putty"
-"procexp"
-"virtualbox"
-"paint.net"
-"itunes"
+#"putty"
+#"virtualbox"
+#"paint.net"
 "irfanview"
 )
 
@@ -227,9 +224,10 @@ if ($nuspec.package.metadata.dependencies.dependency) {
     
     foreach($i in ($nuspec.package.metadata.dependencies.dependency)) {
         
-        if ($i.id -ne "chocolatey-core.extension") {
-            $pkgarray += $i.id
+        if ($i.id -eq "chocolatey-core.extension" -or $i.id -eq 'autohotkey.portable' -or $i.id -eq 'chocolatey-uninstall.extension') {
+            Write-Host "Not adding the following dependency to list: " $i.id -ForegroundColor Magenta
         }
+        else {$pkgarray += $i.id}
     }
 
     $pkg = ($nuspec.package.metadata.dependencies.dependency).id
