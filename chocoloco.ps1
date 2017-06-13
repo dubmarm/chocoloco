@@ -16,8 +16,9 @@ x    curl
     pdfcreator
     malwarebytes
 x    atom
-?    virtualbox - checksum error, perhaps need to remove the CACHE data
-x    paint.net - .Net4.61 - choco does not like the validexitcodes (not in key=value format) : line 294 : $pkghash += convertfrom-stringdata -stringdata $pkgargs[$pkgcounter] Install was still a success
+?    virtualbox - Install-ChocolateyPackage with a url that did not parse
+?    paint.net - .Net4.61 - choco does not like the validexitcodes (not in key=value format) : line 294 : $pkghash += convertfrom-stringdata -stringdata $pkgargs[$pkgcounter] Install was still a success. Too lazy atm
+                    - $pkgargs is a regex of chocolateyinstall.ps1. It's looking for blah = .... and it's doing it with a single line approach. Have to write a IF blah = ... then do normal, IF blah = @ (... then do multiline until )
     python2
     cutepdf
 x    itunes
@@ -25,19 +26,19 @@ x    vim
     python
 x    windirstat
 x    irfanview - added autohotkey.portable chocolatey-uninstall.extension to line 227 : if ($i.id -ne "chocolatey-core.extension","autohotkey.portable","chocolatey-uninstall.extension") {
-    flashplayerppapi #google chrome flash
-    flashplayernpapi #firefox flash
-    cdburnerxp
+?    flashplayerppapi #google chrome flash error 1603
+?    flashplayernpapi #firefox flash error 1603
+?    cdburnerxp - error 1603
     puppet
-    fiddler4
-    greenshot
+x    fiddler4
+?    greenshot - might need cache cleared and lib and nupkg
     vagrant
-    baretail
+x    baretail
     googleearthpro
-    imagemagick.app
+?    imagemagick.app
     docker
-    ffmpeg
-    crystaldiskinfo
+x    ffmpeg
+x    crystaldiskinfo
     virtualclonedrive
     rdcman
     f.lux
@@ -55,10 +56,15 @@ import-module C:\ProgramData\chocolatey\helpers\chocolateyProfile.psm1
 
 #Variables
 $mainhash = @(
-#"putty"
+"putty"
 #"virtualbox"
 #"paint.net"
-"irfanview"
+#"flashplayerppapi"
+#"flashplayernpapi"
+#"cdburnerxp"
+#"fiddler4"
+#"greenshot"
+#"imagemagick.app"
 )
 
 foreach($i in $mainhash){
@@ -617,7 +623,7 @@ do
 #use single quotes and semi colons with the source field
 
 
-choco install $pkg -source 'C:\ProgramData\chocolatey\nupkg' -dv -Y -force
+#choco install $pkg -source 'C:\ProgramData\chocolatey\nupkg' -dv -Y -force
 
 
 }
