@@ -14,9 +14,9 @@ x    "putty"
 x    "procexp"
 x    "curl"
 ?    "pdfcreator" #failed, it fails to choco install pdfcreator (not my problem but i should write a check for choco install complete)
-x    "malwarebytes"
+?    "malwarebytes"
 x    "atom"
-x    "virtualbox"
+?    "virtualbox"
 x    "paint.net"
     "python2"
 x    "cutepdf"
@@ -25,9 +25,9 @@ x    "vim"
     "python"
 x    "windirstat"
 x    "irfanview"
-x    "flashplayerppapi"
+?    "flashplayerppapi"
 x    "flashplayerplugin"
-x    "flashplayeractivex"
+?    "flashplayeractivex"
 x    "cdburnerxp"
     "puppet"
 x    "fiddler4"
@@ -47,7 +47,7 @@ x    "rufus"
     "vmwarevsphereclient"
     "kodi"
 x    "youtube-dl"
-
+choco install $pkg -source 'C:\ProgramData\chocolatey\nupkg' -Y -force
 #>
 
 import-module C:\ProgramData\chocolatey\helpers\chocolateyInstaller.psm1
@@ -55,41 +55,20 @@ import-module C:\ProgramData\chocolatey\helpers\chocolateyProfile.psm1
 
 #Variables
 $mainhash = @(
-    "notepadplusplus"
-    "adobereader"
-    "adobereader-update" #(adobereader must be installed first or else adobe throws a 1643 error)
-    "firefox"
-    "7zip"
-    "vlc"
-    "ccleaner"
-    "sysinternals"
-    "filezilla"
-    "putty"
-#    "procexp"
-#    "curl"
 #    "malwarebytes"
-#    "atom"
-#    "virtualbox"
-#    "paint.net"
-#    "cutepdf"
-#    "itunes"
-#    "vim"
-#    "windirstat"
-#    "irfanview"
-#    "flashplayerppapi"
-#    "flashplayerplugin"
-#    "flashplayeractivex"
+#    "virtualbox" - $file_ep wants to -split $url_ep as though it's a url, when I altered it to be $toolspath\file
+    "flashplayeractivex"
 #    "cdburnerxp"
-#"fiddler4"
-#"greenshot"
-#"baretail"
-#"imagemagick.app"
-#"ffmpeg"
-#"crystaldiskinfo"
-#"virtualclonedrive"
-#"f.lux"
-#"rufus"
-#"youtube-dl"
+#    "fiddler4"
+#    "greenshot"
+#     "baretail"
+#    "imagemagick.app"
+#    "ffmpeg"
+#    "crystaldiskinfo"
+#    "virtualclonedrive"
+#    "f.lux"
+#    "rufus"
+#    "youtube-dl"
 
 #"pdfcreator"
 )
@@ -386,7 +365,7 @@ do
                             
                             Write-Host "outerhash url key has an http(s) value, attempting to parse http for file"
                             
-                            if( ($outerhash.get_item($key) -split "/" | Select-Object -Last 1).count -gt 1 )
+                            if( ($outerhash.get_item($key) -split "/" | Select-Object -Last 1).length -gt 1 )
                             {
                                 $file = ($outerhash.get_item($key) -split "/" -replace ".$" | Select-Object -Last 1)
                             }
@@ -417,7 +396,7 @@ do
                         
                             Write-Host "outerhash url key has a toolsdir uln path, attempting to parse uln for file"
                             
-                            if( ($outerhash.get_item($key) -split "\" | Select-Object -Last 1).count -gt 1 )
+                            if( ($outerhash.get_item($key) -split "\" | Select-Object -Last 1).length -gt 1 )
                             {
                                 $file = ($outerhash.get_item($key) -split "\" -replace ".$" | Select-Object -Last 1)
                                 $file
@@ -467,7 +446,7 @@ do
             
                             Write-Host "pkghash contains a url key with an http(s) value, attempting to parse http path for file"
                             
-                            if( ($pkghash.get_item($key) -split "/" | Select-Object -Last 1).count -gt 1 )
+                            if( ($pkghash.get_item($key) -split "/" | Select-Object -Last 1).length -gt 1 )
                             {
                                 $file = ($pkghash.get_item($key) -split "/" -replace ".$" | Select-Object -Last 1)
                             }
@@ -494,7 +473,7 @@ do
                         
                             Write-Host "pkghash contains a url key with a uln value, attempting to parse uln path for file"
                             
-                            if( ($pkghash.get_item($key) -split "\" | Select-Object -Last 1).count -gt 1 )
+                            if( ($pkghash.get_item($key) -split "\" | Select-Object -Last 1).length -gt 1 )
                             {
                                 $file = ($pkghash.get_item($key) -split "\" -replace ".$" | Select-Object -Last 1)
                                 $file
@@ -542,7 +521,7 @@ do
                 
                         Write-Host "outerhash contains a file key that has toolsdir in the value, attempting to parse toolsdir for file"
                         
-                        if( ($outerhash.get_item($key) -split "\" | Select-Object -Last 1).count -gt 1 )
+                        if( ($outerhash.get_item($key) -split "\" | Select-Object -Last 1).length -gt 1 )
                         {
                             $file = ($outerhash.get_item($key) -split "\" -replace ".$" | Select-Object -Last 1)
                             $file
@@ -609,7 +588,7 @@ do
                 
                                 Write-Host "pkghash contains a file key that has toolsdir in the value, attempting to parse toolsdir for file"
                                 
-                                if( ($pkghash.get_item($key) -split "\" | Select-Object -Last 1).count -gt 1 )
+                                if( ($pkghash.get_item($key) -split "\" | Select-Object -Last 1).length -gt 1 )
                                 {
                                     $file = ($pkghash.get_item($key) -split "\" -replace ".$" | Select-Object -Last 1)
                                     $file
@@ -687,8 +666,8 @@ do
 #I can also look into add nupkg as a source but for now I'll manuall specify it
 #use single quotes and semi colons with the source field
 
-choco uninstall $pkg -y
-choco install $pkg -source 'C:\ProgramData\chocolatey\nupkg' -Y -force
+#choco uninstall $pkg -y
+#choco install $pkg -source 'C:\ProgramData\chocolatey\nupkg' -Y -force
 
 
 }
