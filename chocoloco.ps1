@@ -2,10 +2,10 @@
 <#
     "googlechrome"
     "notepadplusplus"
-    "adobereader"
-    "adobereader-update" #(adobereader must be installed first or else adobe throws a 1643 error)
+x    "adobereader"
+?    "adobereader-update" #(adobereader must be installed first or else adobe throws a 1643 error)
     "firefox"
-    "spark"
+x    "spark"
     "7zip"
     "vlc"
     "sysinternals"
@@ -44,9 +44,7 @@ import-module C:\ProgramData\chocolatey\helpers\chocolateyProfile.psm1
 
 #Variables
 $mainhash = @(
-    "adobereader"
-    "adobereader-update"
-    "spark"
+    #"spark"
     "7zip"
     "vlc"
     "sysinternals"
@@ -99,13 +97,6 @@ function Get-Install ($file) {
     
     Get-ChildItem -Path $pkgcache -Filter "*$file*" -Recurse | ForEach-Object { cp $_.FullName (Split-Path $pkginstall) -Force }
     Get-ChildItem -Path $pkglib -Filter "*$file*" -Recurse | ForEach-Object { cp $_.FullName (Split-Path $pkginstall) -Force }
-<#
-    Get-ChildItem -Path $pkglib\tools -Recurse | ForEach-Object {
-        if(! (Test-Path $pkgnupkg\tools\$_ ) ){
-            cp $_.FullName (Split-Path $pkginstall) -Force 
-         }
-    }
-#>
     Get-ChildItem -Path $pkgnupkg -Filter "*$file*" -Recurse
 }
 
@@ -184,30 +175,8 @@ if (($cacheLocation[1]) -ne "C:\ProgramData\chocolatey\cache") {
 else { Write-Host "cacheLocation is already set to 'C:\ProgramData\chocolatey\cache'; moving on" -foreground Yellow }
 
 
-#some packages (itunes) have a Remove-Item that deletes the cache installers during chocolateyinstall.ps1. we need to remove that before continuing
-choco install $mainpkg -y --skippowershell
-$script = (Get-ChildItem $mainpkglib -Filter chocolateyinstall.ps1 -Recurse).FullName
-$scriptcontent = (get-content $script -RAW)
-
-if ($scriptcontent -match "Remove-Item")
-{
-    ($scriptcontent) -replace "(Remove-Item.*)","" | Set-Content $script
-
-    [xml]$nuspec = (Get-Content "$mainpkglib\*.nuspec")
-    $env:TEMP = $mainpkgcache
-    $env:ChocolateyPackageName = $nuspec.package.metadata.id
-    $env:ChocolateyPackageTitle = $nuspec.package.metadata.title
-    $env:ChocolateyPackageVersion = $nuspec.package.metadata.version
-    $env:ChocolateyPackageFolder = $mainpkglib
-
-
-    #install the package traditionally
-    . $script
-}
-else
-{
-    choco install $mainpkg -y --force
-}
+#some packages (itunes) have a Remove-Item that deletes the cache installers during chocolateyinstall.ps1. we need to remove that before continuing; see same comment below
+choco install $mainpkg -y --skippowershell -force
 
 #build an array of all dependencies
 $pkgarray = @($mainpkg)
@@ -246,6 +215,52 @@ do
     $pkgcache = "C:\ProgramData\chocolatey\cache\$pkg"
     $pkgnupkg = "C:\ProgramData\chocolatey\nupkg\$pkg"
 
+            
+
+            #some packages (itunes) have a Remove-Item that deletes the cache installers during chocolateyinstall.ps1. we need to remove that before continuing
+            if( (Get-ChildItem $mainpkglib -Filter "chocolateyInstall.ps1" -Recurse).FullName -ne $null )
+            {
+                
+                $script = (Get-ChildItem $mainpkglib -Filter "chocolateyInstall.ps1" -Recurse).FullName
+                $scriptcontent = (get-content $script -RAW)
+
+                if ($scriptcontent -match "Remove-Item[ \t]")
+                {
+                    ($scriptcontent) -replace "(Remove-Item[ \t].*)","" | Set-Content $script
+
+                    [xml]$nuspec = (Get-Content "$pkglib\*.nuspec")
+                    $env:TEMP = $pkgcache
+                    $env:ChocolateyPackageName = $nuspec.package.metadata.id
+                    $env:ChocolateyPackageTitle = $nuspec.package.metadata.title
+                    $env:ChocolateyPackageVersion = $nuspec.package.metadata.version
+                    $env:ChocolateyPackageFolder = $pkglib
+
+
+                    #install the package traditionally
+                    . $script
+                }
+                elseif ($scriptcontent -match "^rm[ \t]")
+                {
+                    ($scriptcontent) -replace "^rm[ \t]","" | Set-Content $script
+
+                    [xml]$nuspec = (Get-Content "$pkglib\*.nuspec")
+                    $env:TEMP = $mainpkgcache
+                    $env:ChocolateyPackageName = $nuspec.package.metadata.id
+                    $env:ChocolateyPackageTitle = $nuspec.package.metadata.title
+                    $env:ChocolateyPackageVersion = $nuspec.package.metadata.version
+                    $env:ChocolateyPackageFolder = $pkglib
+
+
+                    #install the package traditionally
+                    . $script
+                }
+                else
+                {
+                    choco install $pkg -y --force
+                }
+            }
+
+    
     #unzip the nupkg file
     cp "$pkglib\*.nupkg" "$pkglib\$pkg.zip"
     if(! (Test-Path $pkgnupkg))
