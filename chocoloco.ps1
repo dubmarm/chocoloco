@@ -1,53 +1,42 @@
 ﻿#REFERENCE SITE: https://chocolatey.org/docs/how-to-recompile-packages
 <#
-x    "googlechrome"
-x    "notepadplusplus"
-x    "adobereader"
-x    "adobereader-update" #(adobereader must be installed first or else adobe throws a 1643 error)
-x    "firefox"
-x    "7zip"
-x    "vlc"
-x    "ccleaner"
-x    "sysinternals"
-x    "filezilla"
-x    "putty"
-x    "procexp"
-x    "curl"
+    "googlechrome"
+    "notepadplusplus"
+    "adobereader"
+    "adobereader-update" #(adobereader must be installed first or else adobe throws a 1643 error)
+    "firefox"
+    "spark"
+    "7zip"
+    "vlc"
+    "sysinternals"
+    "filezilla"
+    "putty"
 ?    "pdfcreator" #failed, it fails to choco install pdfcreator (not my problem but i should write a check for choco install complete)
-?    "malwarebytes"
-x    "atom"
-?    "virtualbox"
 x    "paint.net"
+x    "gimp"
     "python2"
 x    "cutepdf"
-x    "itunes"
-x    "vim"
-    "python"
-x    "windirstat"
-x    "irfanview"
-?    "flashplayerppapi"
-x    "flashplayerplugin"
-?    "flashplayeractivex"
-x    "cdburnerxp"
-    "puppet"
-x    "fiddler4"
-x    "greenshot"
-    "vagrant"
-x    "baretail"
+    "itunes"
+    "windirstat"
+    "irfanview"
+    "flashplayerppapi"
+    "flashplayerplugin"
+    "flashplayeractivex"
+    "adobeshockwaveplayer"
+    "cdburnerxp"
+    "fiddler4"
+    "greenshot"
     "googleearthpro"
-x    "imagemagick.app"
-    "docker"
-x    "ffmpeg"
-x    "crystaldiskinfo"
-x    "virtualclonedrive"
-    "rdcman"
-x    "f.lux"
-x    "rufus"
-    "handbrake" #throwing checksum errors, not my problem
+    "imagemagick.app"
+    "ffmpeg"
+    "crystaldiskinfo"
+    "virtualclonedrive"
+    "f.lux"
+    "rufus"
     "vmwarevsphereclient"
-    "kodi"
-x    "youtube-dl"
-choco install $pkg -source 'C:\ProgramData\chocolatey\nupkg' -Y -force
+    "youtube-dl"
+    "winscp"
+    "tightvnc"
 #>
 
 import-module C:\ProgramData\chocolatey\helpers\chocolateyInstaller.psm1
@@ -55,22 +44,14 @@ import-module C:\ProgramData\chocolatey\helpers\chocolateyProfile.psm1
 
 #Variables
 $mainhash = @(
-#    "malwarebytes"
-#    "virtualbox" - $file_ep wants to -split $url_ep as though it's a url, when I altered it to be $toolspath\file
-    "flashplayeractivex"
-#    "cdburnerxp"
-#    "fiddler4"
-#    "greenshot"
-#     "baretail"
-#    "imagemagick.app"
-#    "ffmpeg"
-#    "crystaldiskinfo"
-#    "virtualclonedrive"
-#    "f.lux"
-#    "rufus"
-#    "youtube-dl"
-
-#"pdfcreator"
+    "adobereader"
+    "adobereader-update"
+    "spark"
+    "7zip"
+    "vlc"
+    "sysinternals"
+    "filezilla"
+    "putty"
 )
 
 foreach($i in $mainhash){
@@ -85,33 +66,17 @@ function Get-HttpExe($key, $file) {
     #store the finding in hashtoalter
     $hashtoalter.add($key,("$toolsdir\" + $file))
 
-    Get-Install "$file"
+    Get-Install $file
 }
 
 function Get-FileExe($key, $file) {
 
-    Write-Host "FILE key exists, searching for the file in cache and lib"
-                    
+    Write-Host "FILE key exists, searching for the file in cache and lib"            
     Get-ChildItem -Path $pkgcache,$pkglib -Filter $file -Recurse
-                    
-    #store the finding in hashtoalter
-    #$hashtoalter.add($key,("$toolsdir\" + $file))
-
     Get-FileZip "$key" "$file"
 
 }
-<#
-function Get-FileZip($key, $file) {
-    Write-Host "ULN missing, searching for .zip | .7z"
-    #find file, file will be the .ignore
-    $file = (Get-ChildItem -Path $pkgcache,$pkglib -Filter '*.zip*', '*.7z*' -Recurse).Name
-    
-    #store the finding in hashtoalter
-    #$hashtoalter.add($key,("$toolsdir\" + $file))
 
-    Get-Install "$file"
-}
-#>
 function Get-Ignore($key) {
     
     #find file, file will be the .ignore
@@ -134,13 +99,16 @@ function Get-Install ($file) {
     
     Get-ChildItem -Path $pkgcache -Filter "*$file*" -Recurse | ForEach-Object { cp $_.FullName (Split-Path $pkginstall) -Force }
     Get-ChildItem -Path $pkglib -Filter "*$file*" -Recurse | ForEach-Object { cp $_.FullName (Split-Path $pkginstall) -Force }
+<#
+    Get-ChildItem -Path $pkglib\tools -Recurse | ForEach-Object {
+        if(! (Test-Path $pkgnupkg\tools\$_ ) ){
+            cp $_.FullName (Split-Path $pkginstall) -Force 
+         }
+    }
+#>
     Get-ChildItem -Path $pkgnupkg -Filter "*$file*" -Recurse
 }
 
-#f*** windows and it's stupid PS regex, .Net regex B.S.
-#.replace () = string but -replace = regex bull crap
-# and don't get me started on interpolation with variables
-# omg the following lines of code can be done with python is 3 lines!
 function Set-HashToAlter($hashtoalter, $pkginstall) {
         
         $hashtoalter
@@ -173,22 +141,11 @@ function Set-HashToAlter($hashtoalter, $pkginstall) {
                     ($str) -replace "(\$i)([.| \t]+=[ \t]).*","`${1}`${2}""$a"""  | set-content $pkginstall 
                 }
             }
-            #else it's a string
             else
             {
                 Write-Host "$i does not contain a pre-pended $" -ForegroundColor Yellow
-                #if($str -match "(?mi)(^$i)([.| \t]+=[ \t])(.*{)")
-                #{
-                #    Write-Host "$i is a multiline value replace" -ForegroundColor Yellow
-                #    ($str) -replace "(?smi)(^$i)([ t]=[ \t])(.*?)(^\$)","`${1}`${2}""$a""`n$" | set-content $pkginstall
-                #}
-
-                #else
-                #{
-                    write-host "$i is a single line replace" -ForegroundColor Yellow
-                    ($str) -replace "($i)([.| \t]+=[ \t]).*","`${1}`${2}""$a"""  | set-content $pkginstall 
-                #}  
-                
+                write-host "$i is a single line replace" -ForegroundColor Yellow
+                ($str) -replace "($i)([.| \t]+=[ \t]).*","`${1}`${2}""$a"""  | set-content $pkginstall 
             }
         }
 
@@ -202,8 +159,6 @@ function Remove-Checksum() {
  #    '(.+checksum.+=[ \t])(.*)'
 
        (Get-Content $pkginstall -Raw) | `
-            #choco requires a checksum field be available in a pkgargs situation (me thinks), otherwise 1603 errors
-            #"`${1}''"
        foreach {$_ -replace '(.+checksum.+=[ \t])(.*)',""} | `
        foreach {$_ -replace '(-checksum.+?(?=[-|\n]))',""} | `
        #set-content "C:\ProgramData\chocolatey\nupkg\virtualbox\fuckwindows.txt"
@@ -228,8 +183,31 @@ if (($cacheLocation[1]) -ne "C:\ProgramData\chocolatey\cache") {
 }
 else { Write-Host "cacheLocation is already set to 'C:\ProgramData\chocolatey\cache'; moving on" -foreground Yellow }
 
-#install the package traditionally
-choco install $mainpkg -y
+
+#some packages (itunes) have a Remove-Item that deletes the cache installers during chocolateyinstall.ps1. we need to remove that before continuing
+choco install $mainpkg -y --skippowershell
+$script = (Get-ChildItem $mainpkglib -Filter chocolateyinstall.ps1 -Recurse).FullName
+$scriptcontent = (get-content $script -RAW)
+
+if ($scriptcontent -match "Remove-Item")
+{
+    ($scriptcontent) -replace "(Remove-Item.*)","" | Set-Content $script
+
+    [xml]$nuspec = (Get-Content "$mainpkglib\*.nuspec")
+    $env:TEMP = $mainpkgcache
+    $env:ChocolateyPackageName = $nuspec.package.metadata.id
+    $env:ChocolateyPackageTitle = $nuspec.package.metadata.title
+    $env:ChocolateyPackageVersion = $nuspec.package.metadata.version
+    $env:ChocolateyPackageFolder = $mainpkglib
+
+
+    #install the package traditionally
+    . $script
+}
+else
+{
+    choco install $mainpkg -y --force
+}
 
 #build an array of all dependencies
 $pkgarray = @($mainpkg)
@@ -301,22 +279,22 @@ do
             $pkgargs = ([regex] '(?is)(?<=\$packageArgs[ \t]+\=[ \t]@{).*?(?=})').matches($content)
             $pkgargs = $pkgargs.value -split "`r`n"
             $pkgargs = $pkgargs -replace '\\','\\'
-
             $pkghash = @{}
             $pkgcounter = 0
             $pkgcount = ($pkgargs.count)
 
             #parser array setup for $var definitions within file
             $content = get-content -Path $pkginstall | Out-string
-            $outervar = [regex]::Matches($content,'(\$\S*[ \t]+\=[ \t])(.*)')
+
+            $outervar = ([regex]::Matches($content,'(?mi)^(\$\S*[ \t]+\=[ \t])(.*)'))
             $outervar = $outervar.value -split "`r`n"
             $outervar = $outervar -replace '\\','\\'
             $outerhash = @{}
             $outercounter = 0
-    
+
             #alter array used as final reference array for all changes to be made to chocolateyinstall.ps1
             $hashtoalter = @{}
-
+ 
                 do{
                     $pkghash += ConvertFrom-StringData -StringData $pkgargs[$pkgcounter]
                     $pkgcounter++
@@ -386,7 +364,7 @@ do
                                 else
                                 {
                                     Write-Host "The url key could not parse the http(s) value for a filename, searching for .ignore file instead"
-                                    Get-Ignore $key
+                                    #Get-Ignore $key
                                 }
             
                         }
@@ -422,7 +400,7 @@ do
                                 else
                                 {
                                     Write-Host "The url key could not parse the toolsdir value for a filename, searching for .ignore file instead"
-                                    Get-Ignore $key
+                                    #Get-Ignore $key
                                 }
 
                         }
@@ -430,16 +408,17 @@ do
                         else
                         {
                             Write-Host "The url key could not parse the value for a filename, searching for .ignore file instead"
-                            Get-Ignore $key
+                            #Get-Ignore $key
                         }
                     }
 
                 #select any pkghash that contains url
-                $pkghash.keys | where {$_ -match 'url'} | foreach {
+                $pkghash.keys | where {$_ -match "url"} | foreach {
                         
                         Write-Host "pkghash contains a url key"
             
                         $key = $_ -replace "`n"
+                        $key
                 
                         #if the url.key has a http(s) string in it's value, then perform the following logic to find the exe
                         if($pkghash.get_item($key) -match 'http://' -or $pkghash.get_item($key) -match 'https://') {
@@ -449,21 +428,25 @@ do
                             if( ($pkghash.get_item($key) -split "/" | Select-Object -Last 1).length -gt 1 )
                             {
                                 $file = ($pkghash.get_item($key) -split "/" -replace ".$" | Select-Object -Last 1)
+                                $file
                             }
                             else
                             {
                                 $file = ($pkghash.get_item($key) -split "/" | Select-Object -Last 2 | Select-Object -First 1)
+                                $file
                             }
+
 
                                 #if the value of key.url is a uln, then get me the last value of / delimiter, see if it exists
                                 if( ( Get-ChildItem -Path $pkgcache,$pkglib -Filter $file -Recurse).name )
                                 {
+                                    Write-Host "the pkghash url key was located"
                                     Get-HttpExe $key $file
                                 }
                                 else
                                 {
                                     Write-Host "the pkghash url key could not locate the filename listed in the http(s) key"
-                                    Get-Ignore $key
+                                    #Get-Ignore $key
                                 }
             
                         }
@@ -495,14 +478,15 @@ do
                                     Get-FileExe $key $file
                                 }
 
-                                else { Get-Ignore $key }
+                                else { #Get-Ignore $key 
+                                }
                                                     
                         }
 
                         else
                         {
                             Write-Host "the pkghash url key could not locate the filename listed in the toolsdir key, searching for .ignore instead"
-                            Get-Ignore $key
+                            #Get-Ignore $key
                         }
                     }
                   
@@ -547,7 +531,7 @@ do
                             else
                             {
                                 Write-Host "the outerhash file key could not locate the filename listed in the toolsdir key, searching for .ignore instead"
-                                Get-Ignore $key
+                                #Get-Ignore $key
                             }
                 
                     }
@@ -565,7 +549,8 @@ do
            
 
                     #else, attempt to find a .ignore in cache and lib and use that filename as the new url.value
-                    else { Get-Ignore $key }
+                    else { #Get-Ignore $key 
+                    }
                 }
                     
                 #select any pkghash that contains file but does not contain type or args
@@ -613,8 +598,8 @@ do
                     
                                     else
                                     {
-                                         Write-Host "the pkghash file key could not locate the filename listed in the toolsdir key, searching for .ignore instead"
-                                        Get-Ignore $key
+                                        Write-Host "the pkghash file key could not locate the filename listed in the toolsdir key, searching for .ignore instead"
+                                        #Get-Ignore $key
                                     }
                 
                             }
@@ -631,15 +616,8 @@ do
 
                             }
 
-                            
-                            #elseif($_ -contains '*.zip*' -or $_ -contains '*.7z*') { 
-                    
-                            #    Write-Host "ZIP key exists but unable to locate the parsed file value, searching for .zip | .7z file"
-                            #    Get-FileZip $key $file
-                            #}
-
-                            #else, attempt to find a .ignore in cache and lib and use that filename as the new url.value
-                            else { Get-Ignore $key }
+                            else { #Get-Ignore $key 
+                            }
                         }
                 }  
 
@@ -660,14 +638,10 @@ do
 
 } while ($counter -ne $pkgarray.count)
 
-#when installing you need to specify the source of the nupkg file AS WELL as any directory to look for dependencies
-#notepadplusplus has .install nupkg in C:\ProgramData\chocolatey\nupkg so that I add that
-#I can also specify ProgramData\chocolatey\lib because that's another function potential
-#I can also look into add nupkg as a source but for now I'll manuall specify it
-#use single quotes and semi colons with the source field
 
-#choco uninstall $pkg -y
-#choco install $pkg -source 'C:\ProgramData\chocolatey\nupkg' -Y -force
+
+choco uninstall $pkg -y
+choco install $pkg -source 'C:\ProgramData\chocolatey\nupkg' -Y -force
 
 
 }
