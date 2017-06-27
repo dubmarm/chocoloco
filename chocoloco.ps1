@@ -2,6 +2,7 @@
 
 # .ignore - how to handle multiple?
 # mainpkg - get rid of it
+# fix the remove-item logic
 
 <#
     "googlechrome"
@@ -77,19 +78,83 @@ function Get-FileExe($key, $file) {
 
 function Get-Ignore($key) {
     
-    #find file, file will be the .ignore
-    (Get-ChildItem -Path $pkgcache\$pkg,$pkglib\$pkg -Filter '*.ignore' -Recurse) | foreach-object `
+    Write-Host "Starting the .ignore fish logic" -ForegroundColor Yellow -BackgroundColor Black
+    
+    $fishin = Get-ChildItem -Path $pkgcache\$pkg,$pkglib\$pkg -Recurse -File | where { `
+        $_.extension -ne ".nupkg" `
+        -and $_.extension -ne ".nuspec" `
+        -and $_.extension -ne ".ignore" `
+        -and $_.name -ne "$pkg.zip" `
+        -and $_.name -ne "chocolateyInstall.ps1" `
+        -and $_.name -ne "chocolateyUninstall.ps1" `
+        -and $_.name -ne "chocolateyUninstall.ps1" `
+        -and $_.name -ne "helpers.ps1" `
+    }
+    
+    #i'm really fishing here; it's not my fault every package has to be special
+    if( ( Get-ChildItem -Path $pkgcache\$pkg,$pkglib\$pkg -Filter '*.ignore' -Recurse).count -eq 1 )
     {
-            
-            $file = $_ -replace '.ignore',''
-            Write-Host "ULN is missing in http(s) address, searching for .ignore instead"
+        Write-Host "Found a single .ignore file, searching for it's identical installer" -ForegroundColor Magenta -BackgroundColor Black
 
-            #store the finding in hashtoalter
+        (Get-ChildItem -Path $pkgcache\$pkg,$pkglib\$pkg -Filter '*.ignore' -Recurse) | foreach-object `
+        {
+             $file = $_ -replace '.ignore',''
+             if ( Test-Path $file.FullName )
+             {
+                 #store the finding in hashtoalter
+                 $hashtoalter.add($key,("$toolsdir\" + $file))
+
+                 Get-Install "$file"
+             }
+             else
+             {
+                Write-Host "You're hosed, there is a .ignore file but no respective executable file. Can't continue" -ForegroundColor Red -BackgroundColor Black
+             }
+        }
+    }
+    elseif( ( Get-ChildItem -Path $pkgcache\$pkg,$pkglib\$pkg -Filter '*.ignore' -Recurse).count -gt 1 )
+    {
+        Write-Host "Found multiple .ignore files, going to try and find the main file"
+
+        (Get-ChildItem -Path $pkgcache\$pkg,$pkglib\$pkg -Filter '*.ignore' -Recurse) | foreach-object `
+        {
+             $file = $_ -replace '.ignore',''
+             if ( ( Get-Content $pkginstall ) -contains $file.Name )
+             {
+                 Write-Host "The .ignore file identified is mentioned in the chocolateyInstall.ps1 file, going to use this as the main file" -ForegroundColor Magenta -BackgroundColor Black
+                 #store the finding in hashtoalter
+                 $hashtoalter.add($key,("$toolsdir\" + $file))
+
+                 Get-Install "$file"
+             }
+             elseif ( ( Get-Content $pkginstall ) -contains $pkg )
+             {
+                 Write-Host "The .ignore file identified is named similar to the package, going to use this as the main file" -ForegroundColor Magenta -BackgroundColor Black
+                 #store the finding in hashtoalter
+                 $hashtoalter.add($key,("$toolsdir\" + $file))
+
+                 Get-Install "$file"
+             }
+             else
+             {
+                Write-Host "You're hosed, there is no .ignore file but no recognizable executable file. Can't continue" -ForegroundColor Red -BackgroundColor Black
+             }
+        }
+    }
+    elseif ( $fishin.count -eq 1)
+    {
+        $file = $fishin[0].Name
+
+        Write-Host "Went fishin and found a single non-.ignore file, going to use this as the main file" -ForegroundColor Magenta -BackgroundColor Black
+        #store the finding in hashtoalter
             $hashtoalter.add($key,("$toolsdir\" + $file))
 
             Get-Install "$file"
     }
-
+    else
+    {
+    Write-Host "You're hosed, there is no .ignore file and multiple files returned from fishin'. Can't continue" -ForegroundColor Red -BackgroundColor Black
+    }
 }
 
 function Get-Install ($file) {
@@ -216,10 +281,10 @@ do
             
 
             #some packages (itunes) have a Remove-Item that deletes the cache installers during chocolateyinstall.ps1. we need to remove that before continuing
-            if( (Get-ChildItem $mainpkglib -Filter "chocolateyInstall.ps1" -Recurse).FullName -ne $null )
+            if( (Get-ChildItem $pkglib\$pkg -Filter "chocolateyInstall.ps1" -Recurse).FullName -ne $null )
             {
                 
-                $script = (Get-ChildItem $mainpkglib -Filter "chocolateyInstall.ps1" -Recurse).FullName
+                $script = (Get-ChildItem $pkglib\$pkg -Filter "chocolateyInstall.ps1" -Recurse).FullName
                 $scriptcontent = (get-content $script -RAW)
 
                 if ($scriptcontent -match "Remove-Item[ \t]")
@@ -405,7 +470,6 @@ do
                                 {
                                     Get-HttpExe $key $file
                                 }
-
                                 else
                                 {
                                     Write-Host "The url key could not parse the http(s) value for a filename, searching for .ignore file instead" -ForegroundColor Red -BackgroundColor Black
