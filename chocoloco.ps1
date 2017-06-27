@@ -7,41 +7,41 @@
 <#
     "googlechrome"
 x    "notepadplusplus"
-    "adobereader"
-    "adobereader-update" #(adobereader must be installed first or else adobe throws a 1643 error)
+x    "adobereader"
+x    "adobereader-update" #(adobereader must be installed first or else adobe throws a 1643 error)
     "firefox"
-    "spark"
-    "7zip"
-    "vlc"
-    "sysinternals"
-    "filezilla"
-    "putty"
+x    "spark"
+x    "7zip"
+x    "vlc"
+x    "sysinternals"
+x    "filezilla"
+x    "putty"
     "pdfcreator" #failed, it fails to choco install pdfcreator (not my problem but i should write a check for choco install complete)
-    "paint.net"
-    "gimp"
+x    "paint.net"
+x    "gimp"
     "python2"
-    "cutepdf"
-    "itunes"
-    "windirstat"
-    "irfanview"
+x    "cutepdf"
+x    "itunes"
+x    "windirstat"
+x    "irfanview"
     "flashplayerppapi"
     "flashplayerplugin"
-    "flashplayeractivex"
-    "adobeshockwaveplayer"
-    "cdburnerxp"
-    "fiddler4"
-    "greenshot"
-    "googleearthpro"
-    "imagemagick.app"
-    "ffmpeg"
-    "crystaldiskinfo"
-    "virtualclonedrive"
-    "f.lux"
-    "rufus"
-    "vmwarevsphereclient"
-    "youtube-dl"
-    "winscp"
-    "tightvnc"
+x    "flashplayeractivex"
+x    "adobeshockwaveplayer"
+x    "cdburnerxp"
+x    "fiddler4"
+x    "greenshot"
+x    "googleearthpro"
+x    "imagemagick.app"
+x    "ffmpeg"
+x    "crystaldiskinfo"
+x    "virtualclonedrive"
+x    "f.lux"
+x    "rufus"
+x    "vmwarevsphereclient"
+x    "youtube-dl"
+x    "winscp"
+    "tightvnc" #1603 error
 #>
 
 import-module C:\ProgramData\chocolatey\helpers\chocolateyInstaller.psm1
@@ -49,8 +49,9 @@ import-module C:\ProgramData\chocolatey\helpers\chocolateyProfile.psm1
 
 #Variables
 $mainhash = @(
-    #"adobereader"
-    "adobereader-update"
+#"flashplayerppapi" #1603 error, probably because it's installed
+#    "flashplayerplugin"
+#    "tightvnc"
 )
 
 foreach($i in $mainhash){
@@ -98,9 +99,13 @@ function Get-Ignore($key) {
 
         (Get-ChildItem -Path $pkgcache\$pkg,$pkglib\$pkg -Filter '*.ignore' -Recurse) | foreach-object `
         {
+             $path = $_.DirectoryName
              $file = $_ -replace '.ignore',''
-             if ( Test-Path $file.FullName )
+             if ( Test-Path "$path\$file" )
              {
+                 Write-Host "Installer Located" -ForegroundColor Magenta -BackgroundColor Black
+                 $file.Name
+
                  #store the finding in hashtoalter
                  $hashtoalter.add($key,("$toolsdir\" + $file))
 
@@ -137,7 +142,7 @@ function Get-Ignore($key) {
              }
              else
              {
-                Write-Host "You're hosed, there is no .ignore file but no recognizable executable file. Can't continue" -ForegroundColor Red -BackgroundColor Black
+                Write-Host "You're hosed, there is no .ignore file and no recognizable executable file. Can't continue" -ForegroundColor Red -BackgroundColor Black
              }
         }
     }
@@ -338,7 +343,7 @@ do
     #remove un-needed, soon to be recreated elements
     remove-item -Recurse "$pkgnupkg\_rels", "$pkgnupkg\package"
     remove-item -LiteralPath [Content_Types].xml
-
+    
     if(Test-Path "$pkgnupkg\tools\chocolateyInstall.ps1")
     {
         $pkginstall = "$pkgnupkg\tools\chocolateyInstall.ps1"
@@ -350,9 +355,10 @@ do
     else
     {
         Write-Host "Game Over Man, chocolateyInstall cannot be found in " $pkgnupkg -ForegroundColor Red -BackgroundColor Black
+        $pkginstall = $null
     }
 
-    if(Test-Path $pkginstall)
+    if( $pkginstall -ne $null )
     {
             #parser array setup for PackageArgs @{} within file
             $content = get-content -Path $pkginstall | Out-String
@@ -755,7 +761,7 @@ do
 
 
 
-choco uninstall $pkg -y
+#choco uninstall $pkg -y
 choco install $pkg -source 'C:\ProgramData\chocolatey\nupkg' -Y -force -r
 
 
