@@ -1,21 +1,25 @@
 ﻿#REFERENCE SITE: https://chocolatey.org/docs/how-to-recompile-packages
+
+# .ignore - how to handle multiple?
+# mainpkg - get rid of it
+
 <#
     "googlechrome"
-    "notepadplusplus"
-x    "adobereader"
-?    "adobereader-update" #(adobereader must be installed first or else adobe throws a 1643 error)
+x    "notepadplusplus"
+    "adobereader"
+    "adobereader-update" #(adobereader must be installed first or else adobe throws a 1643 error)
     "firefox"
-x    "spark"
+    "spark"
     "7zip"
     "vlc"
     "sysinternals"
     "filezilla"
     "putty"
-?    "pdfcreator" #failed, it fails to choco install pdfcreator (not my problem but i should write a check for choco install complete)
-x    "paint.net"
-x    "gimp"
+    "pdfcreator" #failed, it fails to choco install pdfcreator (not my problem but i should write a check for choco install complete)
+    "paint.net"
+    "gimp"
     "python2"
-x    "cutepdf"
+    "cutepdf"
     "itunes"
     "windirstat"
     "irfanview"
@@ -44,12 +48,8 @@ import-module C:\ProgramData\chocolatey\helpers\chocolateyProfile.psm1
 
 #Variables
 $mainhash = @(
-    #"spark"
-    "7zip"
-    "vlc"
-    "sysinternals"
-    "filezilla"
-    "putty"
+    #"adobereader"
+    "adobereader-update"
 )
 
 foreach($i in $mainhash){
@@ -78,7 +78,7 @@ function Get-FileExe($key, $file) {
 function Get-Ignore($key) {
     
     #find file, file will be the .ignore
-    (Get-ChildItem -Path $pkgcache,$pkglib -Filter '*.ignore' -Recurse) | foreach-object `
+    (Get-ChildItem -Path $pkgcache\$pkg,$pkglib\$pkg -Filter '*.ignore' -Recurse) | foreach-object `
     {
             
             $file = $_ -replace '.ignore',''
@@ -152,7 +152,6 @@ function Remove-Checksum() {
        (Get-Content $pkginstall -Raw) | `
        foreach {$_ -replace '(.+checksum.+=[ \t])(.*)',""} | `
        foreach {$_ -replace '(-checksum.+?(?=[-|\n]))',""} | `
-       #set-content "C:\ProgramData\chocolatey\nupkg\virtualbox\fuckwindows.txt"
        set-content $pkginstall
 }
 
@@ -170,13 +169,13 @@ if (($cacheLocation[1]) -ne "C:\ProgramData\chocolatey\cache") {
         mkdir C:\ProgramData\chocolatey\cache
     
     }
-    choco config set cacheLocation $mainpkgcache
+    choco config set cacheLocation "C:\ProgramData\chocolatey\cache"
 }
 else { Write-Host "cacheLocation is already set to 'C:\ProgramData\chocolatey\cache'; moving on" -foreground Yellow }
 
 
 #some packages (itunes) have a Remove-Item that deletes the cache installers during chocolateyinstall.ps1. we need to remove that before continuing; see same comment below
-choco install $mainpkg -y --skippowershell -force
+choco install $mainpkg -y --skippowershell -force -r
 
 #build an array of all dependencies
 $pkgarray = @($mainpkg)
@@ -210,9 +209,8 @@ do
     
     $pkg = $pkgarray["$counter"]
 
-    $pkgcache = "C:\ProgramData\chocolatey\cache"
-    $pkglib = "C:\ProgramData\chocolatey\lib\$pkg"
-    $pkgcache = "C:\ProgramData\chocolatey\cache\$pkg"
+    $pkglib = "C:\ProgramData\chocolatey\lib\"#$pkg
+    $pkgcache = "C:\ProgramData\chocolatey\cache\"#$pkg
     $pkgnupkg = "C:\ProgramData\chocolatey\nupkg\$pkg"
 
             
@@ -226,14 +224,15 @@ do
 
                 if ($scriptcontent -match "Remove-Item[ \t]")
                 {
+                    Write-Host "chocolateyInstall.ps1 contains Remove-Item, removing that line so that nothing is deleted" -ForegroundColor Yellow
                     ($scriptcontent) -replace "(Remove-Item[ \t].*)","" | Set-Content $script
 
-                    [xml]$nuspec = (Get-Content "$pkglib\*.nuspec")
-                    $env:TEMP = $pkgcache
+                    [xml]$nuspec = (Get-Content "$pkglib\$pkg\*.nuspec")
+                    $env:TEMP = "$pkgcache\$pkg"
                     $env:ChocolateyPackageName = $nuspec.package.metadata.id
                     $env:ChocolateyPackageTitle = $nuspec.package.metadata.title
                     $env:ChocolateyPackageVersion = $nuspec.package.metadata.version
-                    $env:ChocolateyPackageFolder = $pkglib
+                    $env:ChocolateyPackageFolder = "$pkglib\$pkg"
 
 
                     #install the package traditionally
@@ -241,14 +240,15 @@ do
                 }
                 elseif ($scriptcontent -match "^rm[ \t]")
                 {
+                    Write-Host "chocolateyInstall.ps1 contains Remove-Item, removing that line so that nothing is deleted" -ForegroundColor Yellow
                     ($scriptcontent) -replace "^rm[ \t]","" | Set-Content $script
 
-                    [xml]$nuspec = (Get-Content "$pkglib\*.nuspec")
-                    $env:TEMP = $mainpkgcache
+                    [xml]$nuspec = (Get-Content "$pkglib\$pkg\*.nuspec")
+                    $env:TEMP = "$pkgcache\$pkg"
                     $env:ChocolateyPackageName = $nuspec.package.metadata.id
                     $env:ChocolateyPackageTitle = $nuspec.package.metadata.title
                     $env:ChocolateyPackageVersion = $nuspec.package.metadata.version
-                    $env:ChocolateyPackageFolder = $pkglib
+                    $env:ChocolateyPackageFolder = "$pkglib\$pkg"
 
 
                     #install the package traditionally
@@ -256,19 +256,19 @@ do
                 }
                 else
                 {
-                    choco install $pkg -y --force
+                    choco install $pkg -y --force -r
                 }
             }
 
     
     #unzip the nupkg file
-    cp "$pkglib\*.nupkg" "$pkglib\$pkg.zip"
+    cp "$pkglib\$pkg\*.nupkg" "$pkglib\$pkg\$pkg.zip"
     if(! (Test-Path $pkgnupkg))
     {
             New-Item -ItemType Directory -Force -Path $pkgnupkg
     }
         
-    expand-archive -path "$pkglib\$pkg.zip" -destinationpath $pkgnupkg -force
+    expand-archive -path "$pkglib\$pkg\$pkg.zip" -destinationpath $pkgnupkg -force
 
     #remove un-needed, soon to be recreated elements
     remove-item -Recurse "$pkgnupkg\_rels", "$pkgnupkg\package"
@@ -294,32 +294,62 @@ do
             $pkgargs = ([regex] '(?is)(?<=\$packageArgs[ \t]+\=[ \t]@{).*?(?=})').matches($content)
             $pkgargs = $pkgargs.value -split "`r`n"
             $pkgargs = $pkgargs -replace '\\','\\'
-            $pkghash = @{}
-            $pkgcounter = 0
-            $pkgcount = ($pkgargs.count)
-
-            #parser array setup for $var definitions within file
-            $content = get-content -Path $pkginstall | Out-string
 
             $outervar = ([regex]::Matches($content,'(?mi)^(\$\S*[ \t]+\=[ \t])(.*)'))
             $outervar = $outervar.value -split "`r`n"
             $outervar = $outervar -replace '\\','\\'
+
+            #sometimes packages have an embedded array in their variable definitions, we need to it in the variable definition
+            $pkghash = @{}
+            $pkgcounter = 0
+            
+            do{
+                foreach ($i in $pkgargs)
+                {
+                    #if a variable contains "= @(" and does not contain = @() (same line)
+                    if( $i -match ".*=[ \t]@\(" -and $i -notmatch "\b.*=[ \t]@\(\b")
+                        {
+                            $i = ( [regex]"(?si)\$i.*)" ).matches($pkgargs)
+                            $pkghash += ConvertFrom-StringData -StringData $i.value
+                            $pkgcounter++
+                        }
+                    #if a variable contains "= @{" and does not contain = @{} (same line)
+                    elseif( $i -match ".*=[ \t]@\{" -and $i -notmatch "\b.*=[ \t]@\{\b" )
+                        {
+                            $i = ( [regex]"(?si)\$i.*}" ).matches($pkgargs)
+                            $pkghash += ConvertFrom-StringData -StringData $i.value
+                            $pkgcounter++
+                        }
+                    #if a variable does NOT contain "="
+                    elseif( $i -notmatch ".*=.*" )
+                        {
+                            $pkgcounter++
+                        }
+                    #then it's a normal $var = $val
+                    else
+                        {
+                            $pkghash += ConvertFrom-StringData -StringData $i
+                            $pkgcounter++
+                        }
+                }
+            } while ($pkgcounter -ne $pkgargs.count)
+
+            #parser array setup for $var definitions within file
             $outerhash = @{}
             $outercounter = 0
 
+            do{
+                foreach ($i in $outervar)
+                {
+                    $outerhash += ConvertFrom-StringData -StringData $i
+                    $outercounter++
+                }
+            } while ($outercounter -ne $outervar.count)
+
+
             #alter array used as final reference array for all changes to be made to chocolateyinstall.ps1
             $hashtoalter = @{}
- 
-                do{
-                    $pkghash += ConvertFrom-StringData -StringData $pkgargs[$pkgcounter]
-                    $pkgcounter++
-                } while ($pkgcounter -ne $pkgcount)
 
-
-                do {
-                    $outerhash += ConvertFrom-StringData -StringData $outervar[$outercounter]
-                    $outercounter++
-                } while ($outercounter -ne $outervar.count)
             
             if($outerhash.count -gt 0 -or $pkghash.count -gt 0){
                 #assign the value of toolsdir
@@ -378,8 +408,8 @@ do
 
                                 else
                                 {
-                                    Write-Host "The url key could not parse the http(s) value for a filename, searching for .ignore file instead"
-                                    #Get-Ignore $key
+                                    Write-Host "The url key could not parse the http(s) value for a filename, searching for .ignore file instead" -ForegroundColor Red -BackgroundColor Black
+                                    Get-Ignore $key
                                 }
             
                         }
@@ -414,16 +444,16 @@ do
 
                                 else
                                 {
-                                    Write-Host "The url key could not parse the toolsdir value for a filename, searching for .ignore file instead"
-                                    #Get-Ignore $key
+                                    Write-Host "The url key could not parse the toolsdir value for a filename, searching for .ignore file instead" -ForegroundColor Red -BackgroundColor Black
+                                    Get-Ignore $key
                                 }
 
                         }
                         
                         else
                         {
-                            Write-Host "The url key could not parse the value for a filename, searching for .ignore file instead"
-                            #Get-Ignore $key
+                            Write-Host "The url key could not parse the value for a filename, searching for .ignore file instead" -ForegroundColor Red -BackgroundColor Black
+                            Get-Ignore $key
                         }
                     }
 
@@ -460,8 +490,8 @@ do
                                 }
                                 else
                                 {
-                                    Write-Host "the pkghash url key could not locate the filename listed in the http(s) key"
-                                    #Get-Ignore $key
+                                    Write-Host "the pkghash url key could not locate the filename listed in the http(s) key" -ForegroundColor Red -BackgroundColor Black
+                                    Get-Ignore $key
                                 }
             
                         }
@@ -493,7 +523,9 @@ do
                                     Get-FileExe $key $file
                                 }
 
-                                else { #Get-Ignore $key 
+                                else 
+                                {
+                                    Get-Ignore $key 
                                 }
                                                     
                         }
@@ -501,7 +533,7 @@ do
                         else
                         {
                             Write-Host "the pkghash url key could not locate the filename listed in the toolsdir key, searching for .ignore instead"
-                            #Get-Ignore $key
+                            Get-Ignore $key
                         }
                     }
                   
@@ -546,7 +578,7 @@ do
                             else
                             {
                                 Write-Host "the outerhash file key could not locate the filename listed in the toolsdir key, searching for .ignore instead"
-                                #Get-Ignore $key
+                                Get-Ignore $key
                             }
                 
                     }
@@ -564,7 +596,9 @@ do
            
 
                     #else, attempt to find a .ignore in cache and lib and use that filename as the new url.value
-                    else { #Get-Ignore $key 
+                    else
+                    {
+                        Get-Ignore $key 
                     }
                 }
                     
@@ -614,7 +648,7 @@ do
                                     else
                                     {
                                         Write-Host "the pkghash file key could not locate the filename listed in the toolsdir key, searching for .ignore instead"
-                                        #Get-Ignore $key
+                                        Get-Ignore $key
                                     }
                 
                             }
@@ -631,7 +665,9 @@ do
 
                             }
 
-                            else { #Get-Ignore $key 
+                            else
+                            {
+                                Get-Ignore $key 
                             }
                         }
                 }  
@@ -656,7 +692,7 @@ do
 
 
 choco uninstall $pkg -y
-choco install $pkg -source 'C:\ProgramData\chocolatey\nupkg' -Y -force
+choco install $pkg -source 'C:\ProgramData\chocolatey\nupkg' -Y -force -r
 
 
 }
