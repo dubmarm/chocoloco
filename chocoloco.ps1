@@ -6,59 +6,46 @@
 
 <#
     "googlechrome"
-x    "notepadplusplus"
-x    "adobereader"
-x    "adobereader-update" #(adobereader must be installed first or else adobe throws a 1643 error)
+    "notepadplusplus"
+    "adobereader"
+    "adobereader-update" #(adobereader must be installed first or else adobe throws a 1643 error)
     "firefox"
-x    "spark"
-x    "7zip"
-x    "vlc"
-x    "sysinternals"
-x    "filezilla"
-x    "putty"
+    "spark"
+    "7zip"
+    "vlc"
+    "sysinternals"
+    "filezilla"
+    "putty"
     "pdfcreator" #failed, it fails to choco install pdfcreator (not my problem but i should write a check for choco install complete)
-x    "paint.net"
-x    "gimp"
+    "paint.net"
+    "gimp"
     "python2"
-x    "cutepdf"
-x    "itunes"
-x    "windirstat"
-x    "irfanview"
+    "cutepdf"
+    "itunes"
+    "windirstat"
+    "irfanview"
     "flashplayerppapi"
     "flashplayerplugin"
-x    "flashplayeractivex"
-x    "adobeshockwaveplayer"
-x    "cdburnerxp"
-x    "fiddler4"
-x    "greenshot"
-x    "googleearthpro"
-x    "imagemagick.app"
-x    "ffmpeg"
+    "flashplayeractivex"
+    "adobeshockwaveplayer"
+    "cdburnerxp"
+    "fiddler4"
+    "greenshot"
+    "googleearthpro"
+    "imagemagick.app"
+    "ffmpeg"
 x    "crystaldiskinfo"
-x    "virtualclonedrive"
+    "virtualclonedrive"
 x    "f.lux"
 x    "rufus"
-x    "vmwarevsphereclient"
-x    "youtube-dl"
+    "vmwarevsphereclient"
+    "youtube-dl"
 x    "winscp"
     "tightvnc" #1603 error
 #>
 
 import-module C:\ProgramData\chocolatey\helpers\chocolateyInstaller.psm1
 import-module C:\ProgramData\chocolatey\helpers\chocolateyProfile.psm1
-
-#Variables
-$mainhash = @(
-#"flashplayerppapi" #1603 error, probably because it's installed
-#    "flashplayerplugin"
-#    "tightvnc"
-)
-
-foreach($i in $mainhash){
-
-$mainpkg = $i
-$mainpkglib = "C:\ProgramData\chocolatey\lib\$mainpkg"
-$mainpkgcache = "C:\ProgramData\chocolatey\cache\$mainpkg"
 
 function Get-HttpExe($key, $file) {            
     Write-Host "ULN exists in http(s) address, updating outerhash"
@@ -225,7 +212,6 @@ function Remove-Checksum() {
        set-content $pkginstall
 }
 
-
 #downloads typically go to C:\Users\USERNAME\AppData\Local\Temp
 #this location sucks, changing location to C:\ProgramData\chocolatey\cache
 $cacheLocation = choco config get cacheLocation
@@ -243,94 +229,106 @@ if (($cacheLocation[1]) -ne "C:\ProgramData\chocolatey\cache") {
 }
 else { Write-Host "cacheLocation is already set to 'C:\ProgramData\chocolatey\cache'; moving on" -foreground Yellow }
 
+#Variables
+$mainhash = @(
+"youtube-dl"
+)
 
-#some packages (itunes) have a Remove-Item that deletes the cache installers during chocolateyinstall.ps1. we need to remove that before continuing; see same comment below
-choco install $mainpkg -y --skippowershell -force -r
+foreach($i in $mainhash){
 
-#build an array of all dependencies
-$pkgarray = @($mainpkg)
+    $mainpkg = $i
+    $mainpkglib = "C:\ProgramData\chocolatey\lib\$mainpkg"
+    $mainpkgcache = "C:\ProgramData\chocolatey\cache\$mainpkg"
 
-[xml]$nuspec = (Get-Content "$mainpkglib\*.nuspec")
-if ($nuspec.package.metadata.dependencies.dependency) {
-    Write-Host "We found some dependencies; standby"
+    #some packages (itunes) have a Remove-Item that deletes the cache installers during chocolateyinstall.ps1. we need to remove that before continuing; see same comment below
+    choco install $mainpkg -y --skippowershell -force -r
+
+    #build an array of all dependencies
+    $pkgarray = @($mainpkg)
+
+    [xml]$nuspec = (Get-Content "$mainpkglib\*.nuspec")
+    if ($nuspec.package.metadata.dependencies.dependency) {
+        Write-Host "We found some dependencies; standby"
     
-    foreach($i in ($nuspec.package.metadata.dependencies.dependency)) {
+        foreach($i in ($nuspec.package.metadata.dependencies.dependency)) {
         
-        if ($i.id -eq "chocolatey-core.extension" -or $i.id -eq 'autohotkey.portable' -or $i.id -eq 'chocolatey-uninstall.extension') {
-            Write-Host "Not adding the following dependency to list: " $i.id -ForegroundColor Magenta
+            if ($i.id -eq "chocolatey-core.extension" -or $i.id -eq 'autohotkey.portable' -or $i.id -eq 'chocolatey-uninstall.extension') {
+                Write-Host "Not adding the following dependency to list: " $i.id -ForegroundColor Magenta
+            }
+            else {$pkgarray += $i.id}
         }
-        else {$pkgarray += $i.id}
+
+        $pkg = ($nuspec.package.metadata.dependencies.dependency).id
     }
 
-    $pkg = ($nuspec.package.metadata.dependencies.dependency).id
-}
+    Write-Host "There are $($pkgarray.count) item(s) to package"
+    $pkgarray
 
-Write-Host "There are $($pkgarray.count) item(s) to package"
-$pkgarray
 
-#for each package listed in pkgarray
-#find any install files that may be stored in lib or cache
-$counter = 0
+    #for each package listed in pkgarray
+    #find any install files that may be stored in lib or cache
+    $counter = 0
 
-do 
-{
+    do {
 
-    Write-host "Working with $pkgarray["$counter"]" -ForegroundColor Yellow
+        Write-host "Working with $pkgarray["$counter"]" -ForegroundColor Yellow
     
-    $pkg = $pkgarray["$counter"]
+        $pkg = $pkgarray["$counter"]
 
-    $pkglib = "C:\ProgramData\chocolatey\lib\"#$pkg
-    $pkgcache = "C:\ProgramData\chocolatey\cache\"#$pkg
-    $pkgnupkg = "C:\ProgramData\chocolatey\nupkg\$pkg"
+        $pkglib = "C:\ProgramData\chocolatey\lib\"#$pkg
+        $pkgcache = "C:\ProgramData\chocolatey\cache\"#$pkg
+        $pkgnupkg = "C:\ProgramData\chocolatey\nupkg\$pkg"
 
-            
-
-            #some packages (itunes) have a Remove-Item that deletes the cache installers during chocolateyinstall.ps1. we need to remove that before continuing
-            if( (Get-ChildItem $pkglib\$pkg -Filter "chocolateyInstall.ps1" -Recurse).FullName -ne $null )
-            {
+        #some packages (itunes) have a Remove-Item that deletes the cache installers during chocolateyinstall.ps1. we need to remove that before continuing
+        if( (Get-ChildItem $pkglib\$pkg -Filter "chocolateyInstall.ps1" -Recurse).FullName -ne $null )
+        {
                 
-                $script = (Get-ChildItem $pkglib\$pkg -Filter "chocolateyInstall.ps1" -Recurse).FullName
-                $scriptcontent = (get-content $script -RAW)
+            $script = (Get-ChildItem $pkglib\$pkg -Filter "chocolateyInstall.ps1" -Recurse).FullName
+            $scriptcontent = (get-content $script -RAW)
 
-                if ($scriptcontent -match "Remove-Item[ \t]")
-                {
-                    Write-Host "chocolateyInstall.ps1 contains Remove-Item, removing that line so that nothing is deleted" -ForegroundColor Yellow
-                    ($scriptcontent) -replace "(Remove-Item[ \t].*)","" | Set-Content $script
+            if ($scriptcontent -match "Remove-Item[ \t]")
+            {
+                Write-Host "chocolateyInstall.ps1 contains Remove-Item, removing that line so that nothing is deleted" -ForegroundColor Yellow
+                ($scriptcontent) -replace "(Remove-Item[ \t].*)","" | Set-Content $script
 
-                    [xml]$nuspec = (Get-Content "$pkglib\$pkg\*.nuspec")
-                    $env:TEMP = "$pkgcache\$pkg"
-                    $env:ChocolateyPackageName = $nuspec.package.metadata.id
-                    $env:ChocolateyPackageTitle = $nuspec.package.metadata.title
-                    $env:ChocolateyPackageVersion = $nuspec.package.metadata.version
-                    $env:ChocolateyPackageFolder = "$pkglib\$pkg"
-
-
-                    #install the package traditionally
-                    . $script
-                }
-                elseif ($scriptcontent -match "^rm[ \t]")
-                {
-                    Write-Host "chocolateyInstall.ps1 contains Remove-Item, removing that line so that nothing is deleted" -ForegroundColor Yellow
-                    ($scriptcontent) -replace "^rm[ \t]","" | Set-Content $script
-
-                    [xml]$nuspec = (Get-Content "$pkglib\$pkg\*.nuspec")
-                    $env:TEMP = "$pkgcache\$pkg"
-                    $env:ChocolateyPackageName = $nuspec.package.metadata.id
-                    $env:ChocolateyPackageTitle = $nuspec.package.metadata.title
-                    $env:ChocolateyPackageVersion = $nuspec.package.metadata.version
-                    $env:ChocolateyPackageFolder = "$pkglib\$pkg"
+                [xml]$nuspec = (Get-Content "$pkglib\$pkg\*.nuspec")
+                $env:TEMP = "$pkgcache\$pkg"
+                $env:ChocolateyPackageName = $nuspec.package.metadata.id
+                $env:ChocolateyPackageTitle = $nuspec.package.metadata.title
+                $env:ChocolateyPackageVersion = $nuspec.package.metadata.version
+                $env:ChocolateyPackageFolder = "$pkglib\$pkg"
 
 
-                    #install the package traditionally
-                    . $script
-                }
-                else
-                {
-                    choco install $pkg -y --force -r
-                }
+                #install the package traditionally
+                . $script
             }
+            elseif ($scriptcontent -match "^rm[ \t]")
+            {
+                Write-Host "chocolateyInstall.ps1 contains Remove-Item, removing that line so that nothing is deleted" -ForegroundColor Yellow
+                ($scriptcontent) -replace "^rm[ \t]","" | Set-Content $script
+
+                [xml]$nuspec = (Get-Content "$pkglib\$pkg\*.nuspec")
+                $env:TEMP = "$pkgcache\$pkg"
+                $env:ChocolateyPackageName = $nuspec.package.metadata.id
+                $env:ChocolateyPackageTitle = $nuspec.package.metadata.title
+                $env:ChocolateyPackageVersion = $nuspec.package.metadata.version
+                $env:ChocolateyPackageFolder = "$pkglib\$pkg"
+
+
+                #install the package traditionally
+                . $script
+            }
+            else
+            {
+                choco install $pkg -y --force -r
+            }
+        }
 
     
+    #create the local working directory where parsing and hosting will take place
+    Copy-Item "$pkglib\$pkg" $pkgnupkg -recurse -force
+    
+    <#
     #unzip the nupkg file
     cp "$pkglib\$pkg\*.nupkg" "$pkglib\$pkg\$pkg.zip"
     if(! (Test-Path $pkgnupkg))
@@ -343,7 +341,8 @@ do
     #remove un-needed, soon to be recreated elements
     remove-item -Recurse "$pkgnupkg\_rels", "$pkgnupkg\package"
     remove-item -LiteralPath [Content_Types].xml
-    
+    #>
+
     if(Test-Path "$pkgnupkg\tools\chocolateyInstall.ps1")
     {
         $pkginstall = "$pkgnupkg\tools\chocolateyInstall.ps1"
@@ -354,7 +353,7 @@ do
     }
     else
     {
-        Write-Host "Game Over Man, chocolateyInstall cannot be found in " $pkgnupkg -ForegroundColor Red -BackgroundColor Black
+        Write-Host "chocolateyInstall.ps1 cannot be found in " $pkgnupkg\$pkg " skipping parsing for this package" -ForegroundColor Red -BackgroundColor Black
         $pkginstall = $null
     }
 
@@ -456,6 +455,8 @@ do
             
                         #if the url.key has a http(s) string in it's value, then perform the following logic to find the exe
                         if($outerhash.get_item($key) -match 'http://' -or $outerhash.get_item($key) -match 'https://') {
+                            
+                            
                             
                             Write-Host "outerhash url key has an http(s) value, attempting to parse http for file"
                             
@@ -609,14 +610,16 @@ do
                   
 
                 #select any outerhash that contains file but does not contain type or args
-                $outerhash.keys | where {$_ -match 'file'} | where {$_ -match '^(?!.*type).*$','^(?!.*args).*$'} | foreach {
+                $outerhash.keys | where {$_ -match 'file'} | where {$_ -match ('^(?!.*type).*$') -and ('^(?!.*args).*$')} | foreach {
                 
                     Write-Host "outerhash contains a file key"
                     
                     $key = $_ -replace "`n"
+                    $file = $outerhash.get_item($key)
+                    $file = $file -replace '"',""
 
-                    Write-host "Working with $_ and " $pkghash.get_item($key)
-
+                    Write-host "Working with $_ and " $outerhash.get_item($key)
+           
                     #if the file.key has $toolsdir\file string in it's value, then perform the following logic
                     if( $outerhash.get_item($key) -match "$toolsdir" ) {
                 
@@ -642,7 +645,7 @@ do
                             #else search for the file, if it finds it great
                             elseif((Get-ChildItem -Path $pkgcache,$pkglib -Filter $file -Recurse) -eq $True) 
                             {
-                                Get-FileExe $key $file
+                                Get-Install $key $file
                             }
 
                             else
@@ -654,12 +657,12 @@ do
                     }
 
                     #if the value of key.uln is a uln, then see if it exists
-                    elseif((Get-ChildItem -Path $pkgcache,$pkglib -Filter '$file' -Recurse).name){
+                    elseif((Get-ChildItem -Path $pkgcache,$pkglib -Filter $file -Recurse).name){
                 
                         Write-Host "outerhash contains a file key that has a static uln in the value, attempting to parse uln for file"
                         
                         $file = (Get-ChildItem -Path $pkgcache,$pkglib -Filter $file -Recurse).name
-                        Get-FileExe $key $file
+                        Get-Install $key $file
                         #store the finding in hashtoalter
                         $hashtoalter.add($key,("$toolsdir\" + $file))
                     }    
@@ -673,12 +676,14 @@ do
                 }
                     
                 #select any pkghash that contains file but does not contain type or args
-                $pkghash.keys | where {$_ -match 'file'} | where {$_ -match '^(?!.*type).*$','^(?!.*args).*$'} | foreach {
+                $pkghash.keys | where {$_ -match 'file'} | where {$_ -match '^(?!.*type).*$' -and '^(?!.*args).*$'} | foreach {
 
                         Write-Host "pkghash contains a file key"
 
                         $key = $_ -replace "`n"
-                        
+                        $file = $pkghash.get_item($key)
+                        $file = $file -replace '"',""
+
                         Write-host "Working with $_ and " $pkghash.get_item($key)
                             
                         if($outerhash.containskey($pkghash.get_item($key)))
