@@ -236,9 +236,9 @@ foreach($i in $mainhash){
     $mainpkglib = "C:\ProgramData\chocolatey\lib\$mainpkg"
     $mainpkgcache = "C:\ProgramData\chocolatey\cache\$mainpkg"
 
-    #some packages (itunes) have a Remove-Item that deletes the cache installers during chocolateyinstall.ps1. we need to remove that before continuing; see same comment below
-    choco install $mainpkg -y --skippowershell -force -r
-    #choco install $pkg -y --force -r
+    #some packages (itunes AND ffmpeg) have a Remove-Item that deletes the cache installers during chocolateyinstall.ps1. we need to remove that before continuing; see same comment below
+    choco install $mainpkg -y --skippowershell -force -r --ignoredependencies
+    #choco install $mainpkg -y --force -r
 
     #build an array of all dependencies
     $pkgarray = @($mainpkg)
@@ -272,8 +272,8 @@ foreach($i in $mainhash){
     
         $pkg = $pkgarray["$counter"]
 
-        $pkglib = "C:\ProgramData\chocolatey\lib\"#$pkg
-        $pkgcache = "C:\ProgramData\chocolatey\cache\"#$pkg
+        $pkglib = "C:\ProgramData\chocolatey\lib\"
+        $pkgcache = "C:\ProgramData\chocolatey\cache\"
         $pkgnupkg = "C:\ProgramData\chocolatey\nupkg\$pkg"
 
         # THIS LINE OF CODE IS BROKEN BECAUSE THERE ISN'T A MEANS OF RUNNING A MODIFIED CHOCOLATEYINSTALL.PS1 WITH ALL THE SETTINGS / ENV VARS AS 'CHOCO INSTALL'
@@ -318,7 +318,8 @@ foreach($i in $mainhash){
              }
              else
              {
-                 choco install $pkg -y --force -r
+                 Write-Host "chocolateyinstall.ps1 does not contain a 'Remove-Item' or 'rm' argument AND this isn't the the main package, installing" 
+                 choco install $pkg -y -r --ignoredependencies
              }
          }
          
