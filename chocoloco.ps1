@@ -24,8 +24,8 @@
     "flashplayerplugin"
     "flashplayeractivex"
     "adobeshockwaveplayer"
-    "cdburnerxp"
-    "fiddler4"
+x    "cdburnerxp"
+x    "fiddler4"
 x    "greenshot"
     "googleearthpro"
 x    "imagemagick.app"
@@ -50,14 +50,6 @@ function Get-HttpExe($key, $file) {
     $hashtoalter.add($key,("$toolsdir\" + $file))
 
     Get-Install $file
-}
-
-function Get-FileExe($key, $file) {
-
-    Write-Host "FILE key exists, searching for the file in cache and lib"            
-    Get-ChildItem -Path $pkgcache,$pkglib -Filter $file -Recurse
-    Get-FileZip "$key" "$file"
-
 }
 
 function Get-Ignore($key) {
@@ -227,7 +219,7 @@ else { Write-Host "cacheLocation is already set to 'C:\ProgramData\chocolatey\ca
 
 #Variables
 $mainhash = @(
-"ffmpeg"
+"cdburnerxp"
 )
 
 foreach($i in $mainhash){
@@ -319,7 +311,7 @@ foreach($i in $mainhash){
              else
              {
                  Write-Host "chocolateyinstall.ps1 does not contain a 'Remove-Item' or 'rm' argument AND this isn't the the main package, installing" 
-                 choco install $pkg -y -r --ignoredependencies
+                 choco install $pkg -y -r -force --ignoredependencies
              }
          }
          
@@ -496,7 +488,7 @@ foreach($i in $mainhash){
                                 #else search for the file, if it finds it great
                                 elseif( (Get-ChildItem -Path $pkgcache,$pkglib -Filter $file -Recurse) -eq $True )
                                 {
-                                    Get-FileExe $key $file
+                                    Get-Install $key $file
                                 }
 
                                 else
@@ -539,17 +531,17 @@ foreach($i in $mainhash){
                             }
 
 
-                                #if the value of key.url is a uln, then get me the last value of / delimiter, see if it exists
-                                if( ( Get-ChildItem -Path $pkgcache,$pkglib -Filter $file -Recurse).name )
-                                {
-                                    Write-Host "the pkghash url key was located"
-                                    Get-HttpExe $key $file
-                                }
-                                else
-                                {
-                                    Write-Host "the pkghash url key could not locate the filename listed in the http(s) key" -ForegroundColor Red -BackgroundColor Black
-                                    Get-Ignore $key
-                                }
+                            #if the value of key.url is a uln, then get me the last value of / delimiter, see if it exists
+                            if( ( Get-ChildItem -Path $pkgcache,$pkglib -Filter $file -Recurse).name )
+                            {
+                                Write-Host "the pkghash url key was located"
+                                Get-HttpExe $key $file
+                            }
+                            else
+                            {
+                                Write-Host "the pkghash url key could not locate the filename listed in the http(s) key" -ForegroundColor Red -BackgroundColor Black
+                                Get-Ignore $key
+                            }
             
                         }
                         
@@ -577,7 +569,7 @@ foreach($i in $mainhash){
                                 #else search for the file, if it finds it great
                                 elseif( (Get-ChildItem -Path $pkgcache,$pkglib -Filter $file -Recurse) -eq $True )
                                 {
-                                    Get-FileExe $key $file
+                                    Get-Install $key $file
                                 }
 
                                 else 
@@ -703,7 +695,7 @@ foreach($i in $mainhash){
                                     #else search for the file, if it finds it great
                                     elseif( (Get-ChildItem -Path $pkgcache,$pkglib -Filter $file -Recurse) -eq $True )
                                     {
-                                        Get-FileExe $key $file 
+                                        Get-Install $key $file 
                                     }
                     
                                     else
@@ -720,7 +712,7 @@ foreach($i in $mainhash){
                                 Write-Host "pkghash contains a file key that has a static uln in the value, attempting to parse uln for file"
 
                                 $file = (Get-ChildItem -Path $pkgcache,$pkglib -Filter $file -Recurse).name
-                                Get-FileExe $key $file
+                                Get-Install $key $file
                                 #store the finding in hashtoalter
                                 $hashtoalter.add($key,("$toolsdir\" + $file))
 
