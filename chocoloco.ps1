@@ -35,11 +35,11 @@
     "imagemagick.app"
     "ffmpeg"
 x    "crystaldiskinfo"
-    "virtualclonedrive"
+x    "virtualclonedrive"
 x    "f.lux"
 x    "rufus"
     "vmwarevsphereclient"
-    "youtube-dl"
+x    "youtube-dl"
 x    "winscp"
     "tightvnc" #1603 error
 #>
@@ -231,7 +231,7 @@ else { Write-Host "cacheLocation is already set to 'C:\ProgramData\chocolatey\ca
 
 #Variables
 $mainhash = @(
-"youtube-dl"
+"ffmpeg"
 )
 
 foreach($i in $mainhash){
@@ -327,21 +327,6 @@ foreach($i in $mainhash){
     
     #create the local working directory where parsing and hosting will take place
     Copy-Item "$pkglib\$pkg" $pkgnupkg -recurse -force
-    
-    <#
-    #unzip the nupkg file
-    cp "$pkglib\$pkg\*.nupkg" "$pkglib\$pkg\$pkg.zip"
-    if(! (Test-Path $pkgnupkg))
-    {
-            New-Item -ItemType Directory -Force -Path $pkgnupkg
-    }
-        
-    expand-archive -path "$pkglib\$pkg\$pkg.zip" -destinationpath $pkgnupkg -force
-
-    #remove un-needed, soon to be recreated elements
-    remove-item -Recurse "$pkgnupkg\_rels", "$pkgnupkg\package"
-    remove-item -LiteralPath [Content_Types].xml
-    #>
 
     if(Test-Path "$pkgnupkg\tools\chocolateyInstall.ps1")
     {
@@ -610,7 +595,7 @@ foreach($i in $mainhash){
                   
 
                 #select any outerhash that contains file but does not contain type or args
-                $outerhash.keys | where {$_ -match 'file'} | where {$_ -match ('^(?!.*type).*$') -and ('^(?!.*args).*$')} | foreach {
+                $outerhash.keys | where {$_ -match 'file'} | where {$_ -match ('^(?!.*[Tt]ype).*$') -and $_ -match ('^(?!.*[Aa]rgs).*$')} | foreach {
                 
                     Write-Host "outerhash contains a file key"
                     
@@ -676,22 +661,22 @@ foreach($i in $mainhash){
                 }
                     
                 #select any pkghash that contains file but does not contain type or args
-                $pkghash.keys | where {$_ -match 'file'} | where {$_ -match '^(?!.*type).*$' -and '^(?!.*args).*$'} | foreach {
+                $pkghash.keys | where {$_ -match 'file'} | where {$_ -match '^(?!.*type).*$' -and $_ -match '^(?!.*args).*$'} | foreach {
 
-                        Write-Host "pkghash contains a file key"
+                    Write-Host "pkghash contains a file key"
 
-                        $key = $_ -replace "`n"
-                        $file = $pkghash.get_item($key)
-                        $file = $file -replace '"',""
+                    $key = $_ -replace "`n"
+                    $file = $pkghash.get_item($key)
+                    $file = $file -replace '"',""
 
-                        Write-host "Working with $_ and " $pkghash.get_item($key)
+                    Write-host "Working with $_ and " $pkghash.get_item($key)
                             
-                        if($outerhash.containskey($pkghash.get_item($key)))
-                        {
+                    if($outerhash.containskey($pkghash.get_item($key)))
+                    {
                             Write-Host "PackageArgs contains the key $i with value $pkghash.get_item($i), this value references outerhash.key; leaving the reference alone"
                         }
-                        else
-                        {
+                    else
+                    {
                             #if the file.key has $toolsdir\file string in it's value, then perform the following logic
                             if($pkghash.get_item($key) -match "$toolsdir") {
                 
