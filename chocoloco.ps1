@@ -1,9 +1,5 @@
 ﻿#REFERENCE SITE: https://chocolatey.org/docs/how-to-recompile-packages
 
-# .ignore - how to handle multiple?
-# mainpkg - get rid of it
-# fix the remove-item logic
-
 <#
     "googlechrome"
     "notepadplusplus"
@@ -30,7 +26,7 @@
     "adobeshockwaveplayer"
     "cdburnerxp"
     "fiddler4"
-    "greenshot"
+x    "greenshot"
     "googleearthpro"
 x    "imagemagick.app"
 x    "ffmpeg"
@@ -231,7 +227,7 @@ else { Write-Host "cacheLocation is already set to 'C:\ProgramData\chocolatey\ca
 
 #Variables
 $mainhash = @(
-"imagemagick.app"
+"ffmpeg"
 )
 
 foreach($i in $mainhash){
@@ -279,6 +275,55 @@ foreach($i in $mainhash){
         $pkglib = "C:\ProgramData\chocolatey\lib\"#$pkg
         $pkgcache = "C:\ProgramData\chocolatey\cache\"#$pkg
         $pkgnupkg = "C:\ProgramData\chocolatey\nupkg\$pkg"
+
+        # THIS LINE OF CODE IS BROKEN BECAUSE THERE ISN'T A MEANS OF RUNNING A MODIFIED CHOCOLATEYINSTALL.PS1 WITH ALL THE SETTINGS / ENV VARS AS 'CHOCO INSTALL'
+         #some packages (itunes) have a Remove-Item that deletes the cache installers during chocolateyinstall.ps1. we need to remove that before continuing
+         if( (Get-ChildItem $pkglib\$pkg -Filter "chocolateyInstall.ps1" -Recurse).FullName -ne $null )
+         {
+                 
+             $script = (Get-ChildItem $pkglib\$pkg -Filter "chocolateyInstall.ps1" -Recurse).FullName
+             $scriptcontent = (get-content $script -RAW)
+ 
+             if ($scriptcontent -match "Remove-Item[ \t]")
+             {
+                 Write-Host "chocolateyInstall.ps1 contains Remove-Item, removing that line so that nothing is deleted" -ForegroundColor Yellow
+                 ($scriptcontent) -replace "(Remove-Item[ \t].*)","" | Set-Content $script
+ 
+                 [xml]$nuspec = (Get-Content "$pkglib\$pkg\*.nuspec")
+                 $env:TEMP = "$pkgcache\$pkg"
+                 $env:ChocolateyPackageName = $nuspec.package.metadata.id
+                 $env:ChocolateyPackageTitle = $nuspec.package.metadata.title
+                 $env:ChocolateyPackageVersion = $nuspec.package.metadata.version
+                 $env:ChocolateyPackageFolder = "$pkglib\$pkg"
+ 
+ 
+                 #install the package traditionally
+                 . $script
+             }
+             elseif ($scriptcontent -match "^rm[ \t]")
+             {
+                 Write-Host "chocolateyInstall.ps1 contains Remove-Item, removing that line so that nothing is deleted" -ForegroundColor Yellow
+                 ($scriptcontent) -replace "^rm[ \t]","" | Set-Content $script
+ 
+                 [xml]$nuspec = (Get-Content "$pkglib\$pkg\*.nuspec")
+                 $env:TEMP = "$pkgcache\$pkg"
+                 $env:ChocolateyPackageName = $nuspec.package.metadata.id
+                 $env:ChocolateyPackageTitle = $nuspec.package.metadata.title
+                 $env:ChocolateyPackageVersion = $nuspec.package.metadata.version
+                 $env:ChocolateyPackageFolder = "$pkglib\$pkg"
+ 
+ 
+                 #install the package traditionally
+                 . $script
+             }
+             else
+             {
+                 choco install $pkg -y --force -r
+             }
+         }
+         
+
+
 
     #create the local working directory where parsing and hosting will take place
     Copy-Item "$pkglib\$pkg" $pkgnupkg -recurse -force
