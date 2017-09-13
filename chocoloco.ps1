@@ -33,7 +33,7 @@
     "greenshot"
     "googleearthpro"
     "imagemagick.app"
-    "ffmpeg"
+?    "ffmpeg" #failed, this package uses rm/remove-item
 x    "crystaldiskinfo"
 x    "virtualclonedrive"
 x    "f.lux"
@@ -242,6 +242,7 @@ foreach($i in $mainhash){
 
     #some packages (itunes) have a Remove-Item that deletes the cache installers during chocolateyinstall.ps1. we need to remove that before continuing; see same comment below
     choco install $mainpkg -y --skippowershell -force -r
+    #choco install $pkg -y --force -r
 
     #build an array of all dependencies
     $pkgarray = @($mainpkg)
@@ -252,7 +253,7 @@ foreach($i in $mainhash){
     
         foreach($i in ($nuspec.package.metadata.dependencies.dependency)) {
         
-            if ($i.id -eq "chocolatey-core.extension" -or $i.id -eq 'autohotkey.portable' -or $i.id -eq 'chocolatey-uninstall.extension') {
+            if ($i.id -eq "chocolatey-core.extension" -or $i.id -eq 'autohotkey.portable' -or $i.id -eq 'chocolatey-uninstall.extension' -or $i.id -eq 'chocolatey') {
                 Write-Host "Not adding the following dependency to list: " $i.id -ForegroundColor Magenta
             }
             else {$pkgarray += $i.id}
@@ -279,6 +280,7 @@ foreach($i in $mainhash){
         $pkgcache = "C:\ProgramData\chocolatey\cache\"#$pkg
         $pkgnupkg = "C:\ProgramData\chocolatey\nupkg\$pkg"
 
+        <# THIS LINE OF CODE IS BROKEN BECAUSE THERE ISN'T A MEANS OF RUNNING A MODIFIED CHOCOLATEYINSTALL.PS1 WITH ALL THE SETTINGS / ENV VARS AS 'CHOCO INSTALL'
         #some packages (itunes) have a Remove-Item that deletes the cache installers during chocolateyinstall.ps1. we need to remove that before continuing
         if( (Get-ChildItem $pkglib\$pkg -Filter "chocolateyInstall.ps1" -Recurse).FullName -ne $null )
         {
@@ -323,6 +325,7 @@ foreach($i in $mainhash){
                 choco install $pkg -y --force -r
             }
         }
+        #>
 
     
     #create the local working directory where parsing and hosting will take place
