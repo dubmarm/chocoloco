@@ -17,7 +17,7 @@
     "gimp"
     "python2"
     "cutepdf"
-    "itunes"
+x    "itunes"
 x    "windirstat"
 x    "irfanview"
     "flashplayerppapi"
