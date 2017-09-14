@@ -12,39 +12,73 @@ NOTE: this script is not perfect, it will spit out errors that aren't true. Or i
 
 The following chocolatey packages are tested regularly:
     "googlechrome"
-    "notepadplusplus"
-    "adobereader"
-    "adobereader-update"
-    "firefox"
-    "spark"
-    "7zip"
-    "vlc"
-    "sysinternals"
-    "filezilla"
-    "putty"
-    "pdfcreator"
-    "paint.net"
-    "gimp"
-    "python2"
-    "cutepdf"
-    "itunes"
-    "windirstat"
-    "irfanview"
-    "flashplayerppapi"
-    "flashplayerplugin"
-    "flashplayeractivex"
-    "adobeshockwaveplayer"
-    "cdburnerxp"
-    "fiddler4"
-    "greenshot"
-    "googleearthpro"
-    "imagemagick.app"
-    "ffmpeg"
-    "crystaldiskinfo"
-    "virtualclonedrive"
-    "f.lux"
-    "rufus"
-    "vmwarevsphereclient"
-    "youtube-dl"
-    "winscp"
     
+    "notepadplusplus"
+    
+    "adobereader"
+    
+    "adobereader-update"
+    
+    "firefox"
+    
+    "spark"
+    
+    "7zip"
+    
+    "vlc"
+    
+    "sysinternals"
+    
+    "filezilla"
+    
+    "putty"
+    
+    "pdfcreator"
+    
+    "paint.net"
+    
+    "gimp"
+    
+    "python2"
+    
+    "cutepdf"
+    
+    "itunes"
+    
+    "windirstat"
+    
+    "irfanview"
+    
+    "flashplayerppapi"
+    
+    "flashplayerplugin"
+    
+    "flashplayeractivex"
+    
+    "adobeshockwaveplayer"
+    
+    "cdburnerxp"
+    
+    "fiddler4"
+    
+    "greenshot"
+    
+    "googleearthpro"
+    
+    "imagemagick.app"
+    
+    "ffmpeg"
+    
+    "crystaldiskinfo"
+    
+    "virtualclonedrive"
+    
+    "f.lux"
+    
+    "rufus"
+    
+    "vmwarevsphereclient"
+    
+    "youtube-dl"
+    
+    "winscp"
