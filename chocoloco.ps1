@@ -230,7 +230,6 @@ foreach($i in $mainhash){
 
     #some packages (itunes AND ffmpeg) have a Remove-Item that deletes the cache installers during chocolateyinstall.ps1. we need to remove that before continuing; see same comment below
     choco install $mainpkg -y --skippowershell -force -r --ignoredependencies
-    #choco install $mainpkg -y --force -r
 
     #build an array of all dependencies
     $pkgarray = @($mainpkg)
@@ -268,43 +267,48 @@ foreach($i in $mainhash){
         $pkgcache = "C:\ProgramData\chocolatey\cache\"
         $pkgnupkg = "C:\ProgramData\chocolatey\nupkg\$pkg"
 
-        # THIS LINE OF CODE IS BROKEN BECAUSE THERE ISN'T A MEANS OF RUNNING A MODIFIED CHOCOLATEYINSTALL.PS1 WITH ALL THE SETTINGS / ENV VARS AS 'CHOCO INSTALL'
-         #some packages (itunes) have a Remove-Item that deletes the cache installers during chocolateyinstall.ps1. we need to remove that before continuing
-         if( (Get-ChildItem $pkglib\$pkg -Filter "chocolateyInstall.ps1" -Recurse).FullName -ne $null )
-         {
-                 
-             $script = (Get-ChildItem $pkglib\$pkg -Filter "chocolateyInstall.ps1" -Recurse).FullName
-             $scriptcontent = (get-content $script -RAW)
-             $nupkgfile = (Get-ChildItem $pkglib\$pkg -Filter "*.nupkg" -Recurse).Name
+        #some packages (itunes) have a Remove-Item that deletes the cache installers during chocolateyinstall.ps1. we need to remove that before continuing
+        if( (Get-ChildItem $pkglib\$pkg -Filter "chocolateyInstall.ps1" -Recurse).FullName -ne $null )
+        {
+                
+            $script = (Get-ChildItem $pkglib\$pkg -Filter "chocolateyInstall.ps1" -Recurse).FullName
+            $scriptcontent = (get-content $script -RAW)
+            $nupkgfile = (Get-ChildItem $pkglib\$pkg -Filter "*.nupkg" -Recurse).Name
  
-             if ($scriptcontent -match "Remove-Item[ \t]")
-             {
-                 Write-Host "chocolateyInstall.ps1 contains Remove-Item, removing that line so that nothing is deleted" -ForegroundColor Yellow
-                 ($scriptcontent) -replace 'Remove-Item[ \t].*',"" | Set-Content $script
+            if ($scriptcontent -match "Remove-Item[ \t]")
+            {
+                Write-Host "chocolateyInstall.ps1 contains Remove-Item, removing that line so that nothing is deleted" -ForegroundColor Yellow
+                ($scriptcontent) -replace 'Remove-Item[ \t].*',"" | Set-Content $script
 
-                 New-Item $pkgnupkg -ItemType Directory
-                 choco pack "$pkglib\$pkg\$pkg.nuspec" --out $pkgnupkg
-                 choco uninstall $pkg -y
-                 choco install $pkg -source $pkgnupkg -Y -force -r --ignoredependencies
+                if(!(Test-Path $pkgnupkg)) {
+                   New-Item $pkgnupkg -ItemType Directory
+                }
+                choco pack "$pkglib\$pkg\$pkg.nuspec" --out $pkgnupkg
+                choco uninstall $pkg -y -force
+                choco install $pkg -source $pkgnupkg -Y -force -r --ignoredependencies
+                Remove-Item $pkgnupkg -Force -Recurse
  
-             }
-             elseif ($scriptcontent -match "^rm[ \t]")
-             {
-                 Write-Host "chocolateyInstall.ps1 contains Remove-Item, removing that line so that nothing is deleted" -ForegroundColor Yellow
-                 ($scriptcontent) -replace '^rm[ \t]',"" | Set-Content $script
+            }
+            elseif ($scriptcontent -match "rm[ \t]")
+            {
+                Write-Host "chocolateyInstall.ps1 contains Remove-Item, removing that line so that nothing is deleted" -ForegroundColor Yellow
+                ($scriptcontent) -replace 'rm[ \t]',"" | Set-Content $script
 
-                 New-Item $pkgnupkg -ItemType Directory
-                 choco pack "$pkglib\$pkg\$pkg.nuspec" --out $pkgnupkg
-                 choco uninstall $pkg -y
-                 choco install $pkg -source $pkgnupkg -Y -force -r --ignoredependencies
+                if(!(Test-Path $pkgnupkg)) {
+                   New-Item $pkgnupkg -ItemType Directory
+                }
+                choco pack "$pkglib\$pkg\$pkg.nuspec" --out $pkgnupkg
+                choco uninstall $pkg -y -force
+                choco install $pkg -source $pkgnupkg -Y -force -r --ignoredependencies
+                Remove-Item $pkgnupkg -Force -Recurse
  
-             }
-             else
-             {
-                 Write-Host "chocolateyinstall.ps1 does not contain a 'Remove-Item' or 'rm' argument AND this isn't the the main package, installing" 
-                 choco install $pkg -y -r -force --ignoredependencies
-             }
-         }
+            }
+            else
+            {
+                Write-Host "chocolateyinstall.ps1 does not contain a 'Remove-Item' or 'rm' argument AND this isn't the the main package, installing" 
+                choco install $pkg -y -r -force --ignoredependencies
+            }
+        }
          
 
     #create the local working directory where parsing and hosting will take place
