@@ -18,8 +18,8 @@
     "python2"
     "cutepdf"
     "itunes"
-    "windirstat"
-    "irfanview"
+x    "windirstat"
+x    "irfanview"
     "flashplayerppapi"
     "flashplayerplugin"
     "flashplayeractivex"
@@ -27,7 +27,7 @@
 x    "cdburnerxp"
 x    "fiddler4"
 x    "greenshot"
-    "googleearthpro"
+x    "googleearthpro"
 x    "imagemagick.app"
 x    "ffmpeg"
 x    "crystaldiskinfo"
@@ -219,7 +219,7 @@ else { Write-Host "cacheLocation is already set to 'C:\ProgramData\chocolatey\ca
 
 #Variables
 $mainhash = @(
-"cdburnerxp"
+"itunes"
 )
 
 foreach($i in $mainhash){
@@ -275,38 +275,29 @@ foreach($i in $mainhash){
                  
              $script = (Get-ChildItem $pkglib\$pkg -Filter "chocolateyInstall.ps1" -Recurse).FullName
              $scriptcontent = (get-content $script -RAW)
+             $nupkgfile = (Get-ChildItem $pkglib\$pkg -Filter "*.nupkg" -Recurse).Name
  
              if ($scriptcontent -match "Remove-Item[ \t]")
              {
                  Write-Host "chocolateyInstall.ps1 contains Remove-Item, removing that line so that nothing is deleted" -ForegroundColor Yellow
-                 ($scriptcontent) -replace "(Remove-Item[ \t].*)","" | Set-Content $script
+                 ($scriptcontent) -replace 'Remove-Item[ \t].*',"" | Set-Content $script
+
+                 New-Item $pkgnupkg -ItemType Directory
+                 choco pack "$pkglib\$pkg\$pkg.nuspec" --out $pkgnupkg
+                 choco uninstall $pkg -y
+                 choco install $pkg -source $pkgnupkg -Y -force -r --ignoredependencies
  
-                 [xml]$nuspec = (Get-Content "$pkglib\$pkg\*.nuspec")
-                 $env:TEMP = "$pkgcache\$pkg"
-                 $env:ChocolateyPackageName = $nuspec.package.metadata.id
-                 $env:ChocolateyPackageTitle = $nuspec.package.metadata.title
-                 $env:ChocolateyPackageVersion = $nuspec.package.metadata.version
-                 $env:ChocolateyPackageFolder = "$pkglib\$pkg"
- 
- 
-                 #install the package traditionally
-                 . $script
              }
              elseif ($scriptcontent -match "^rm[ \t]")
              {
                  Write-Host "chocolateyInstall.ps1 contains Remove-Item, removing that line so that nothing is deleted" -ForegroundColor Yellow
-                 ($scriptcontent) -replace "^rm[ \t]","" | Set-Content $script
+                 ($scriptcontent) -replace '^rm[ \t]',"" | Set-Content $script
+
+                 New-Item $pkgnupkg -ItemType Directory
+                 choco pack "$pkglib\$pkg\$pkg.nuspec" --out $pkgnupkg
+                 choco uninstall $pkg -y
+                 choco install $pkg -source $pkgnupkg -Y -force -r --ignoredependencies
  
-                 [xml]$nuspec = (Get-Content "$pkglib\$pkg\*.nuspec")
-                 $env:TEMP = "$pkgcache\$pkg"
-                 $env:ChocolateyPackageName = $nuspec.package.metadata.id
-                 $env:ChocolateyPackageTitle = $nuspec.package.metadata.title
-                 $env:ChocolateyPackageVersion = $nuspec.package.metadata.version
-                 $env:ChocolateyPackageFolder = "$pkglib\$pkg"
- 
- 
-                 #install the package traditionally
-                 . $script
              }
              else
              {
@@ -315,8 +306,6 @@ foreach($i in $mainhash){
              }
          }
          
-
-
 
     #create the local working directory where parsing and hosting will take place
     Copy-Item "$pkglib\$pkg" $pkgnupkg -recurse -force
